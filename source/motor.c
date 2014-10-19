@@ -151,29 +151,22 @@ int main(void)
 
     Start(); /* PWMによるモーター制御をEnableにします */
     printf("Start\n");
-    sleep(2);
+    sleep(6);
 
+    Power(CH2, 130);
+    Power(CH3, (unsigned char)-100);
+    sleep(5);
+    Power(CH2, (unsigned char)-100);
+    Power(CH3, 130);
+    sleep(5);
+    Power(CH2, 0);
+    Power(CH3, 0);
 
-    Power(mov_ch, 30); /* Output mov_ch のモーターを30% のスピードで動かします。*/
-    sleep(2);
-
-    Power(mov_ch, 60); /* Output mov_ch のモーターを60% のスピードで動かします。*/
-    sleep(2);
-
-    Power(mov_ch, 100); /* Output mov_ch のモーターを100% のスピードで動かします。*/
-    sleep(2);
-
-    Power(mov_ch, 0); /* Output mov_ch のモーターを0% のスピードにし停止します。*/
-    sleep(2);
-
-    Power(mov_ch, (unsigned char)-30); /* mov_chのモーターを逆向きに30%のスピードで動かします */
-    sleep(2);
-
-    Power(mov_ch, (unsigned char)-60); /* mov_chのモーターを逆向きに60%のスピードで動かします */
-    sleep(2);
-
-    Power(mov_ch, (unsigned char)-100); /* mov_chのモーターを逆向き100%のスピードで動かします */
-    sleep(2);
+    int i;
+    for (i = 0; i < 150; i+= 5) {
+        Power(mov_ch, i);
+        sleep(1);
+    }
 
     Power(mov_ch, 0); /* Output mov_ch のモーターを0% のスピードにし停止します。*/
     sleep(2);

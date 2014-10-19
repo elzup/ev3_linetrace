@@ -1,6 +1,4 @@
 
-
-
 ##work
 + ev3(telnet)
 $ touch [file]
