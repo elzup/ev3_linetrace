@@ -138,7 +138,7 @@ int SetSpeed(unsigned char ch, unsigned char speed) {
     ret = write(pwmfp,Buf,3);
     return ret;
 }
-int MorotReset(unsigned char ch) {
+int MotorReset(unsigned char ch) {
     unsigned char Buf[4];
     int ret;
 
@@ -155,15 +155,22 @@ int MotorInit() {
         printf("Cannot open dev/lms_pwm\n");
         exit(-1);
     }
+}
 
+void MotorStart(unsigned char ch) {
     unsigned char Buf[4];
     int ret;
-
     Buf[0] = opOUTPUT_START;
-    Buf[1] = CH_A | CH_B | CH_C | CH_D;
+    Buf[1] = ch;
     ret = write(pwmfp,Buf,2);
-    PrgStop();
-    PrgStart();
+    return ret;
+}
+void MotorStop(unsigned char ch) {
+    unsigned char Buf[4];
+    int ret;
+    Buf[0] = opOUTPUT_STOP;
+    Buf[1] = ch;
+    ret = write(pwmfp,Buf,2);
     return ret;
 }
 void SensorInit() {
@@ -179,7 +186,6 @@ void SensorInit() {
     }
 }
 void MotorFina() {
-    PrgStop();
     close(pwmfp);
 }
 void SensorFina() {
@@ -189,7 +195,7 @@ void SensorFina() {
 
 // standard
 void Init() {
-    MotorInit();
+//    MotorInit();
     SensorInit();
 }
 void Fina() {
@@ -199,14 +205,20 @@ void Fina() {
 
 // debugs
 void debug_motor(unsigned char ChMotorL, unsigned char ChMotorR) {
-    printf("DebugMortor start\n");
+    printf("DebugMotor start\n");
+    PrgStop();
+    PrgStart();
+    MotorInit();
+    MotorStart(ChMotorL | ChMotorR);
     sleep(2);
-    MotorSet(ChMotorR, 200);
-    MotorSet(ChMotorL, (unsigned char)-100);
+    MotorSet(ChMotorL, 40);
+    MotorSet(ChMotorR, (unsigned char)-40);
     sleep(2);
     MotorSet(ChMotorL, 0);
     MotorSet(ChMotorR, 0);
-    printf("DebugMortor end\n");
+    MotorStop(ChMotorL | ChMotorR);
+    PrgStop();
+    printf("DebugMotor end\n");
 }
 void debug_color_sensor(unsigned char ChColorSensor) {
     int i;
@@ -220,7 +232,7 @@ void debug_color_sensor(unsigned char ChColorSensor) {
     printf("DebugColorSensor end\n");
 }
 
-// standard helper
+// helpers
 unsigned char CheckColor(unsigned char val) {
     if (val <= BASE_COL_BLACK_UP) {
         return COL_BLACK;
@@ -230,6 +242,45 @@ unsigned char CheckColor(unsigned char val) {
     return COL_WHITE;
 }
 
+// main funcs
+void linetrance(unsigned char ChMotorL, unsigned char ChMotorR, unsigned char ChColorSensorL, unsigned char ChColorSensorR) {
+    unsigned char speedL = 30;
+    unsigned char speedR = 30;
+    printf("linetrance program start\n");
+    PrgStop();
+    PrgStart();
+    MotorInit();
+    MotorStart(ChMotorL | ChMotorR);
+    MotorSet(ChMotorL, (unsigned char)speedL);
+    MotorSet(ChMotorR, (unsigned char) -speedR);
+    sleep(1);
+    int i;
+    for (i = 0; i < 100; i++) {
+        unsigned char col = CheckColor(GetSensor(ChColorSensorL));
+        printf("get col: %d \n", col);
+        printf("speed: %d : %d \n", speedL, speedR);
+        switch(col) {
+            case COL_BLACK:
+            case COL_GRAY:
+                speedL = 30;
+                speedR = 20;
+                break;
+            case COL_WHITE:
+                speedL = 20;
+                speedR = 20;
+                break;
+            default:
+                break;
+        }
+        MotorSet(ChMotorL, (unsigned char)speedL);
+        MotorSet(ChMotorR, (unsigned char) -speedR);
+        sleep(0.1f);
+    }
+    MotorStop(ChMotorL | ChMotorR);
+    PrgStop();
+}
+
+// main method
 int main(int argc, char *argv[]) {
 
     Init();
@@ -241,12 +292,13 @@ int main(int argc, char *argv[]) {
     unsigned char ChColorSensorR = CH_2;
 
     ChgSensorMode(ChColorSensorL, MOD_COL_REFLECT);
-    MorotReset(ChMotorL|ChMotorR);
+//    ChgSensorMode(ChColorSensorR, MOD_COL_REFLECT);
+    MotorReset(ChMotorL|ChMotorR);
 
     printf("ProgStart\n");
-
-    debug_color_sensor(ChColorSensorL);
-//    debug_motor(ChMotorl, ChMotorR);
+    linetrance(ChMotorL, ChMotorR, ChColorSensorL, ChColorSensorR);
+//    debug_color_sensor(ChColorSensorL);
+//    debug_motor(ChMotorL, ChMotorR);
     printf("ProgStop\n");
 
     Fina();
