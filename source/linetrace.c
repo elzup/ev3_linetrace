@@ -7,17 +7,27 @@
 #include <signal.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
-//#include "lms2012.h"
+#include "lms2012.h"
 
+// PORTS
 #define CH_A 0x01
 #define CH_B 0x02
 #define CH_C 0x04
 #define CH_D 0x08
 
+#define CH_1 0x00
+#define CH_2 0x01
+#define CH_3 0x02
+#define CH_4 0x03
+
 // MOD
 #define MOD_COLREFLECT 0
 #define MOD_AMBIENT 1
 #define MOD_COLOR 2
+
+#define MOD_DIST_CM 0
+#define MOD_DIST_INC 1
+#define MOD_LISTEN 2
 
 // LED
 #define LED_BLACK 0+'0'
@@ -31,9 +41,28 @@
 #define LED_RED_PULSE 8+'0'
 #define LED_ORANGE_PULSE 9+'0'
 
-
+/* Colorセンサー /dev/lms_uart */
 int uartfp;
+UART *pUart;
+unsigned char GetSensor(unsigned char ch) {
+    return((unsigned char) pUart->Raw[ch][pUart->Actual[ch]][0]);
+}
+int ChgSensorMode(unsigned char ch, int mode) {
+    int i;
+    int ret;
+    DEVCON DevCon;
 
+    for (i = 0; i < 4; i++) {
+        DevCon.Connection[i] = CONN_NONE;
+    }
+
+    DevCon.Connection[ch] = CONN_INPUT_UART;
+    DevCon.Mode[ch] = (unsigned char) mode;
+
+    ret = ioctl(uartfp, UART_SET_CONN, &DevCon);
+
+    return ret;
+}
 /* LED /dev/lms_ui */
 int uifp;
 /* LEDをセットする */
@@ -46,7 +75,6 @@ int SetLed(unsigned char pat) {
     ret = write(uifp, Buf, 2);
     return ret;
 }
-
 typedef struct  {
     unsigned char Pressed[6];
 } KEYBUF;
@@ -114,8 +142,6 @@ int Start(void) {
     Buf[1] = CH_A | CH_B | CH_C | CH_D;
     ret = write(pwmfp,Buf,2);
     return ret;
-}
-unsigned char GetSensor(unsigned char ch) {
 }
 int MotorSet(unsigned char ch, unsigned char power) {
     unsigned char Buf[4];
