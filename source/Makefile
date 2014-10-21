@@ -1,7 +1,7 @@
-SOURCES = motor.c
-SUBDIRS = motor
+SOURCES = linetrace.c
+SUBDIRS = linetrace
 
-TARGET = motor
+TARGET = linetrace
 
 CONF = Linux
 ARCH = AM1808
