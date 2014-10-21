@@ -244,16 +244,15 @@ unsigned char CheckColor(unsigned char val) {
 
 // main funcs
 void linetrance(unsigned char ChMotorL, unsigned char ChMotorR, unsigned char ChColorSensorL, unsigned char ChColorSensorR) {
-    unsigned char speedL = 30;
-    unsigned char speedR = 30;
+    unsigned char speedL = 50;
+    unsigned char speedR = 50;
     printf("linetrance program start\n");
     PrgStop();
     PrgStart();
     MotorInit();
     MotorStart(ChMotorL | ChMotorR);
     MotorSet(ChMotorL, (unsigned char)speedL);
-    MotorSet(ChMotorR, (unsigned char) -speedR);
-    sleep(1);
+    MotorSet(ChMotorR, (unsigned char)speedR);
     int i;
     for (i = 0; i < 100; i++) {
         unsigned char col = CheckColor(GetSensor(ChColorSensorL));
@@ -262,19 +261,19 @@ void linetrance(unsigned char ChMotorL, unsigned char ChMotorR, unsigned char Ch
         switch(col) {
             case COL_BLACK:
             case COL_GRAY:
-                speedL = 30;
-                speedR = 20;
+                speedL = 60;
+                speedR = 50;
                 break;
             case COL_WHITE:
-                speedL = 20;
-                speedR = 20;
+                speedL = 50;
+                speedR = 50;
                 break;
             default:
                 break;
         }
         MotorSet(ChMotorL, (unsigned char)speedL);
-        MotorSet(ChMotorR, (unsigned char) -speedR);
-        sleep(0.1f);
+        MotorSet(ChMotorR, (unsigned char)speedR);
+        usleep(100000);
     }
     MotorStop(ChMotorL | ChMotorR);
     PrgStop();
