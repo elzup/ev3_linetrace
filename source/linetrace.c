@@ -9,6 +9,15 @@
 #include <sys/ioctl.h>
 #include "lms2012.h"
 
+// config
+#define BASE_COL_BLACK_UP 10
+#define BASE_COL_GRAY_UP 30
+#define BASE_COL_WHITE_UP 100
+
+#define COL_BLACK 0x00
+#define COL_GRAY 0x01
+#define COL_WHITE 0x02
+
 // PORTS
 #define CH_A 0x01
 #define CH_B 0x02
@@ -20,8 +29,10 @@
 #define CH_3 0x02
 #define CH_4 0x03
 
+#define CH_4 0x03
+
 // MOD
-#define MOD_COLREFLECT 0
+#define MOD_COL_REFLECT 0
 #define MOD_AMBIENT 1
 #define MOD_COLOR 2
 
@@ -40,6 +51,11 @@
 #define LED_GREEN_PULSE 7+'0'
 #define LED_RED_PULSE 8+'0'
 #define LED_ORANGE_PULSE 9+'0'
+
+typedef struct  {
+    unsigned char Pressed[6];
+} KEYBUF;
+
 
 /* Colorセンサー /dev/lms_uart */
 int uartfp;
@@ -75,39 +91,6 @@ int SetLed(unsigned char pat) {
     ret = write(uifp, Buf, 2);
     return ret;
 }
-typedef struct  {
-    unsigned char Pressed[6];
-} KEYBUF;
-typedef enum {
-
-    opPROGRAM_STOP = 0x02, //0010
-    opPROGRAM_START= 0x03, //0011
-
-    opOUTPUT_GET_TYPE= 0xA0, //00000
-    opOUTPUT_SET_TYPE= 0xA1, //00001
-    opOUTPUT_RESET= 0xA2, //00010
-    opOUTPUT_STOP= 0xA3, //00011
-    opOUTPUT_POWER = 0xA4, //00100
-    opOUTPUT_SPEED= 0xA5, //00101
-    opOUTPUT_START = 0xA6, //00110
-    opOUTPUT_POLARITY= 0xA7, //00111
-    opOUTPUT_READ = 0xA8, //01000
-    opOUTPUT_TEST  = 0xA9, // 01001
-    opOUTPUT_READY = 0xAA, //01010
-    opOUTPUT_POSITION = 0xAB, //01011
-    opOUTPUT_STEP_POWER= 0xAC, //01100
-    opOUTPUT_TIME_POWER= 0xAD, //01101
-    opOUTPUT_STEP_SPEED= 0xAE, //01110
-    opOUTPUT_TIME_SPEED= 0xAF, // 01111
-
-    opOUTPUT_STEP_SYNC= 0xB0, //10000
-    opOUTPUT_TIME_SYNC = 0xB1, //10001
-    opOUTPUT_CLR_COUNT= 0xB2, //10010
-    opOUTPUT_GET_COUNT= 0xB3, //10011
-
-    opOUTPUT_PRG_STOP = 0xB4, //10100
-} OP;
-
 int pwmfp;
 int Stop(unsigned char ch) {
     unsigned char Buf[4];
@@ -134,15 +117,6 @@ int PrgStop(void) {
     ret = write(pwmfp,Buf,1);
     return ret;
 }
-int Start(void) {
-    unsigned char Buf[4];
-    int ret;
-
-    Buf[0] = opOUTPUT_START;
-    Buf[1] = CH_A | CH_B | CH_C | CH_D;
-    ret = write(pwmfp,Buf,2);
-    return ret;
-}
 int MotorSet(unsigned char ch, unsigned char power) {
     unsigned char Buf[4];
     int ret;
@@ -164,7 +138,7 @@ int SetSpeed(unsigned char ch, unsigned char speed) {
     ret = write(pwmfp,Buf,3);
     return ret;
 }
-int Reset(unsigned char ch) {
+int MorotReset(unsigned char ch) {
     unsigned char Buf[4];
     int ret;
 
@@ -173,49 +147,110 @@ int Reset(unsigned char ch) {
     ret = write(pwmfp,Buf,2);
     return ret;
 }
-void MotorInit() {
+
+// standard helper
+int MotorInit() {
     pwmfp = open("/dev/lms_pwm",O_RDWR);
     if (pwmfp < 0) {
         printf("Cannot open dev/lms_pwm\n");
         exit(-1);
     }
-}
 
-void MotorFina() {
-    close(pwmfp);
-}
+    unsigned char Buf[4];
+    int ret;
 
-void Init() {
-    MotorInit();
-}
-
-void Fina() {
-    MotorFina();
-}
-
-int main(void) {
-    Init();
-    printf("start motor!");
-
+    Buf[0] = opOUTPUT_START;
+    Buf[1] = CH_A | CH_B | CH_C | CH_D;
+    ret = write(pwmfp,Buf,2);
     PrgStop();
     PrgStart();
-    Reset(CH_A|CH_B|CH_C|CH_D);
+    return ret;
+}
+void SensorInit() {
+    uartfp = open("/dev/lms_uart",O_RDWR | O_SYNC);
+    if (pwmfp < 0) {
+        printf("Cannot open dev/lms_uart\n");
+        exit(-1);
+    }
+    pUart = (UART*)mmap(0, sizeof(UART), PROT_READ | PROT_WRITE, MAP_FILE | MAP_SHARED, uartfp, 0);
+    if (pUart == MAP_FAILED) {
+        printf("Failed to map device\n");
+        exit(-1);
+    }
+}
+void MotorFina() {
+    PrgStop();
+    close(pwmfp);
+}
+void SensorFina() {
+    munmap(pUart, sizeof(UART));
+    close(uartfp);
+}
 
-    int mov_ch = CH_B;
+// standard
+void Init() {
+    MotorInit();
+    SensorInit();
+}
+void Fina() {
+    MotorFina();
+    SensorFina();
+}
 
-    Start();
-    printf("Start\n");
-
+// debugs
+void debug_motor(unsigned char ChMotorL, unsigned char ChMotorR) {
+    printf("DebugMortor start\n");
     sleep(2);
-    MotorSet(CH_C, 200);
-    MotorSet(CH_B, (unsigned char)-100);
+    MotorSet(ChMotorR, 200);
+    MotorSet(ChMotorL, (unsigned char)-100);
     sleep(2);
-    MotorSet(CH_B, 0);
-    MotorSet(CH_C, 0);
+    MotorSet(ChMotorL, 0);
+    MotorSet(ChMotorR, 0);
+    printf("DebugMortor end\n");
+}
+void debug_color_sensor(unsigned char ChColorSensor) {
+    int i;
+    printf("DebugColorSensor start\n");
+    for (i = 0; i < 10; i++) {
+        unsigned char val = GetSensor(ChColorSensor);
+        printf("Color Sensor: %d \n", val);
+        sleep(1);
+    }
+
+    printf("DebugColorSensor end\n");
+}
+
+// standard helper
+unsigned char CheckColor(unsigned char val) {
+    if (val <= BASE_COL_BLACK_UP) {
+        return COL_BLACK;
+    } else if (val <= BASE_COL_GRAY_UP) {
+        return COL_GRAY;
+    }
+    return COL_WHITE;
+}
+
+int main(int argc, char *argv[]) {
+
+    Init();
+    // config port
+    unsigned char ChMotorL = CH_C;
+    unsigned char ChMotorR = CH_B;
+
+    unsigned char ChColorSensorL = CH_3;
+    unsigned char ChColorSensorR = CH_2;
+
+    ChgSensorMode(ChColorSensorL, MOD_COL_REFLECT);
+    MorotReset(ChMotorL|ChMotorR);
+
+    printf("ProgStart\n");
+
+    debug_color_sensor(ChColorSensorL);
+//    debug_motor(ChMotorl, ChMotorR);
     printf("ProgStop\n");
 
-    PrgStop();
     Fina();
-
     return 1;
 }
+
+
