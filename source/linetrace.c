@@ -9,11 +9,12 @@
 #include <sys/ioctl.h>
 //#include "lms2012.h"
 
-#define CH1 0x01
-#define CH2 0x02
-#define CH3 0x04
-#define CH4 0x08
+#define CH_A 0x01
+#define CH_B 0x02
+#define CH_C 0x04
+#define CH_D 0x08
 
+// MOD
 #define MOD_COLREFLECT 0
 #define MOD_AMBIENT 1
 #define MOD_COLOR 2
@@ -46,7 +47,9 @@ int SetLed(unsigned char pat) {
     return ret;
 }
 
-/* EV3のバイトコードの定義からの抜粋です（from bytecode.h） */
+typedef struct  {
+    unsigned char Pressed[6];
+} KEYBUF;
 typedef enum {
 
     opPROGRAM_STOP = 0x02, //0010
@@ -108,18 +111,18 @@ int Start(void) {
     int ret;
 
     Buf[0] = opOUTPUT_START;
-    Buf[1] = CH1 | CH2 | CH3 | CH4;
+    Buf[1] = CH_A | CH_B | CH_C | CH_D;
     ret = write(pwmfp,Buf,2);
     return ret;
 }
 unsigned char GetSensor(unsigned char ch) {
 }
-int Power(unsigned char ch, unsigned char power) {
+int MotorSet(unsigned char ch, unsigned char power) {
     unsigned char Buf[4];
     int ret;
 
     Buf[0] = opOUTPUT_POWER;
-    Buf[1] = ch; /* 複数のCHを指定する時は CH1 | CH2 といった形式で */
+    Buf[1] = ch;
     Buf[2] = power;
     ret = write(pwmfp,Buf,3);
     return ret;
@@ -144,36 +147,49 @@ int Reset(unsigned char ch) {
     ret = write(pwmfp,Buf,2);
     return ret;
 }
-void InitMotor() {
+void MotorInit() {
     pwmfp = open("/dev/lms_pwm",O_RDWR);
     if (pwmfp < 0) {
         printf("Cannot open dev/lms_pwm\n");
         exit(-1);
     }
 }
-void Init() {
-    InitMotor();
+
+void MotorFina() {
+    close(pwmfp);
 }
+
+void Init() {
+    MotorInit();
+}
+
+void Fina() {
+    MotorFina();
+}
+
 int main(void) {
     Init();
     printf("start motor!");
 
-    PrgStop();  /* PWMの制御を停止します。おまじない（？）*/
-    PrgStart(); /* PWMのプログラムでの制御開始します。 */
-    Reset(CH1|CH2|CH3|CH4);
+    PrgStop();
+    PrgStart();
+    Reset(CH_A|CH_B|CH_C|CH_D);
 
-    int mov_ch = CH2;
+    int mov_ch = CH_B;
 
-    Start(); /* PWMによるモーター制御をEnableにします */
+    Start();
     printf("Start\n");
-    sleep(2);
 
-    Power(CH3, 200);
-    Power(CH2, (unsigned char)-100);
     sleep(2);
-    Power(CH2, 0);
-    Power(CH3, 0);
-    printf("ProgStop\n"); /* が解放されます。 */
+    MotorSet(CH_C, 200);
+    MotorSet(CH_B, (unsigned char)-100);
+    sleep(2);
+    MotorSet(CH_B, 0);
+    MotorSet(CH_C, 0);
+    printf("ProgStop\n");
+
+    PrgStop();
+    Fina();
 
     return 1;
 }
