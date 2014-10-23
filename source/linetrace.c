@@ -31,11 +31,12 @@
 
 #define CH_4 0x03
 
-// MOD
+// MODE
+// color sensor
 #define MOD_COL_REFLECT 0
 #define MOD_AMBIENT 1
 #define MOD_COLOR 2
-
+// sonic sensor
 #define MOD_DIST_CM 0
 #define MOD_DIST_INC 1
 #define MOD_LISTEN 2
@@ -67,16 +68,12 @@ int ChgSensorMode(unsigned char ch, int mode) {
     int i;
     int ret;
     DEVCON DevCon;
-
     for (i = 0; i < 4; i++) {
         DevCon.Connection[i] = CONN_NONE;
     }
-
     DevCon.Connection[ch] = CONN_INPUT_UART;
     DevCon.Mode[ch] = (unsigned char) mode;
-
     ret = ioctl(uartfp, UART_SET_CONN, &DevCon);
-
     return ret;
 }
 /* LED /dev/lms_ui */
@@ -290,8 +287,11 @@ int main(int argc, char *argv[]) {
     unsigned char ChColorSensorL = CH_3;
     unsigned char ChColorSensorR = CH_2;
 
+    unsigned char ChSonicSensor = CH_1;
+
     ChgSensorMode(ChColorSensorL, MOD_COL_REFLECT);
-//    ChgSensorMode(ChColorSensorR, MOD_COL_REFLECT);
+    ChgSensorMode(ChSonicSensor, MOD_DIST_CM);
+
     MotorReset(ChMotorL|ChMotorR);
 
     printf("ProgStart\n");
