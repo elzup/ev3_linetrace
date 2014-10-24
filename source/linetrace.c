@@ -61,7 +61,6 @@ typedef struct  {
     unsigned char Pressed[6];
 } KEYBUF;
 
-
 /* Colorセンサー /dev/lms_uart */
 int uartfp;
 UART *pUart;
@@ -235,14 +234,24 @@ void debug_color_sensor(unsigned char ChColorSensor) {
 void debug_sonic_sensor(unsigned char ChSonicSensor) {
     unsigned char val = GetSonor(ChSonicSensor);
     printf("DebugSonicSensor start\n");
-//    while(val > 4) {
-//        val = GetSonor(ChSonicSensor);
-//        printf("%d\n", val);
-//        usleep(1000000);
-//    }
+    while(val > 4) {
+        val = GetSonor(ChSonicSensor);
+        printf("%d\n", val);
+        usleep(1000000);
+    }
     printf("%d\n", val);
-
     printf("DebugSonicSensor end\n");
+}
+void debug_gyro_sensor(unsigned char ChGyroSensor) {
+    printf("DebugGyroSensor start\n");
+    int i;
+    for (i = 0; i < 10; i++) {
+        unsigned char val = GetSonor(ChGyroSensor);
+        printf("%d\n", val);
+        usleep(1000000);
+    }
+    printf("%d\n", val);
+    printf("DebugGyroSensor end\n");
 }
 
 // helpers
@@ -257,35 +266,35 @@ unsigned char CheckColor(unsigned char val) {
 
 // main funcs
 void linetrance(unsigned char ChMotorL, unsigned char ChMotorR, unsigned char ChColorSensorL, unsigned char ChColorSensorR, unsigned char ChSonicSensor, unsigned char ChGyroSensor) {
-    unsigned char speedL = 50;
-    unsigned char speedR = 50;
+    unsigned char speedL = (unsigned char) -50;
+    unsigned char speedR = (unsigned char) -50;
     printf("linetrance program start\n");
     PrgStop();
     PrgStart();
     MotorInit();
     MotorStart(ChMotorL | ChMotorR);
-    MotorSet(ChMotorL, (unsigned char)speedL);
-    MotorSet(ChMotorR, (unsigned char)speedR);
+    MotorSet(ChMotorL, speedL);
+    MotorSet(ChMotorR, speedR);
     int i;
     for (i = 0; i < 100; i++) {
-        unsigned char col = CheckColor(GetSonor(ChColorSensorL));
+        unsigned char col = CheckColor(GetSonor(ChColorSensorL)) | CheckColor(GetSonor(ChColorSensorL));
         printf("get col: %d \n", col);
         printf("speed: %d : %d \n", speedL, speedR);
         switch(col) {
             case COL_BLACK:
             case COL_GRAY:
-                speedL = 60;
-                speedR = 50;
+                speedL = (unsigned char) -60;
+                speedR = (unsigned char) -50;
                 break;
             case COL_WHITE:
-                speedL = 50;
-                speedR = 50;
+                speedL = (unsigned char) -50;
+                speedR = (unsigned char) -50;
                 break;
             default:
                 break;
         }
-        MotorSet(ChMotorL, (unsigned char)speedL);
-        MotorSet(ChMotorR, (unsigned char)speedR);
+        MotorSet(ChMotorL, speedL);
+        MotorSet(ChMotorR, speedR);
         usleep(100000);
     }
     MotorStop(ChMotorL | ChMotorR);
@@ -316,7 +325,8 @@ int main(int argc, char *argv[]) {
 //    linetrance(ChMotorL, ChMotorR, ChColorSensorL, ChColorSensorR, ChSonicSensor, ChGyroSensor);
 //    debug_color_sensor(ChColorSensorL);
 //    debug_motor(ChMotorL, ChMotorR);
-    debug_sonic_sensor(ChSonicSensor);
+    debug_gyro_sensor(ChGyroSensor);
+//    debug_sonic_sensor(ChSonicSensor);
     printf("ProgStop\n");
 
     Fina();
