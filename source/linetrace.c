@@ -18,6 +18,7 @@
 #define COL_GRAY 0x01
 #define COL_WHITE 0x02
 
+
 // PORTS
 #define CH_A 0x01
 #define CH_B 0x02
@@ -40,6 +41,9 @@
 #define MOD_DIST_CM 0
 #define MOD_DIST_INC 1
 #define MOD_LISTEN 2
+// gyro sensor
+#define MOD_GYRO_ANG 0
+#define MOD_GYRO_RATE 1
 
 // LED
 #define LED_BLACK 0+'0'
@@ -61,7 +65,7 @@ typedef struct  {
 /* Colorセンサー /dev/lms_uart */
 int uartfp;
 UART *pUart;
-unsigned char GetSensor(unsigned char ch) {
+unsigned char GetSonor(unsigned char ch) {
     return((unsigned char) pUart->Raw[ch][pUart->Actual[ch]][0]);
 }
 int ChgSensorMode(unsigned char ch, int mode) {
@@ -221,12 +225,24 @@ void debug_color_sensor(unsigned char ChColorSensor) {
     int i;
     printf("DebugColorSensor start\n");
     for (i = 0; i < 10; i++) {
-        unsigned char val = GetSensor(ChColorSensor);
+        unsigned char val = GetSonor(ChColorSensor);
         printf("Color Sensor: %d \n", val);
         sleep(1);
     }
 
     printf("DebugColorSensor end\n");
+}
+void debug_sonic_sensor(unsigned char ChSonicSensor) {
+    unsigned char val = GetSonor(ChSonicSensor);
+    printf("DebugSonicSensor start\n");
+//    while(val > 4) {
+//        val = GetSonor(ChSonicSensor);
+//        printf("%d\n", val);
+//        usleep(1000000);
+//    }
+    printf("%d\n", val);
+
+    printf("DebugSonicSensor end\n");
 }
 
 // helpers
@@ -240,7 +256,7 @@ unsigned char CheckColor(unsigned char val) {
 }
 
 // main funcs
-void linetrance(unsigned char ChMotorL, unsigned char ChMotorR, unsigned char ChColorSensorL, unsigned char ChColorSensorR) {
+void linetrance(unsigned char ChMotorL, unsigned char ChMotorR, unsigned char ChColorSensorL, unsigned char ChColorSensorR, unsigned char ChSonicSensor, unsigned char ChGyroSensor) {
     unsigned char speedL = 50;
     unsigned char speedR = 50;
     printf("linetrance program start\n");
@@ -252,7 +268,7 @@ void linetrance(unsigned char ChMotorL, unsigned char ChMotorR, unsigned char Ch
     MotorSet(ChMotorR, (unsigned char)speedR);
     int i;
     for (i = 0; i < 100; i++) {
-        unsigned char col = CheckColor(GetSensor(ChColorSensorL));
+        unsigned char col = CheckColor(GetSonor(ChColorSensorL));
         printf("get col: %d \n", col);
         printf("speed: %d : %d \n", speedL, speedR);
         switch(col) {
@@ -288,16 +304,19 @@ int main(int argc, char *argv[]) {
     unsigned char ChColorSensorR = CH_2;
 
     unsigned char ChSonicSensor = CH_1;
+    unsigned char ChGyroSensor = CH_4;
 
     ChgSensorMode(ChColorSensorL, MOD_COL_REFLECT);
     ChgSensorMode(ChSonicSensor, MOD_DIST_CM);
+    ChgSensorMode(ChGyroSensor, MOD_GYRO_ANG);
 
     MotorReset(ChMotorL|ChMotorR);
 
     printf("ProgStart\n");
-    linetrance(ChMotorL, ChMotorR, ChColorSensorL, ChColorSensorR);
+//    linetrance(ChMotorL, ChMotorR, ChColorSensorL, ChColorSensorR, ChSonicSensor, ChGyroSensor);
 //    debug_color_sensor(ChColorSensorL);
 //    debug_motor(ChMotorL, ChMotorR);
+    debug_sonic_sensor(ChSonicSensor);
     printf("ProgStop\n");
 
     Fina();
