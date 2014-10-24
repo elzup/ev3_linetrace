@@ -245,8 +245,9 @@ void debug_sonic_sensor(unsigned char ChSonicSensor) {
 void debug_gyro_sensor(unsigned char ChGyroSensor) {
     printf("DebugGyroSensor start\n");
     int i;
+    unsigned char val = 0;
     for (i = 0; i < 10; i++) {
-        unsigned char val = GetSonor(ChGyroSensor);
+        val = GetSonor(ChGyroSensor);
         printf("%d\n", val);
         usleep(1000000);
     }
@@ -265,36 +266,53 @@ unsigned char CheckColor(unsigned char val) {
 }
 
 // main funcs
-void linetrance(unsigned char ChMotorL, unsigned char ChMotorR, unsigned char ChColorSensorL, unsigned char ChColorSensorR, unsigned char ChSonicSensor, unsigned char ChGyroSensor) {
-    unsigned char speedL = (unsigned char) -50;
-    unsigned char speedR = (unsigned char) -50;
+void linetrance(unsigned char ChMotorL, unsigned char ChMotorR, unsigned char ChMotorB, unsigned char ChColorSensorL, unsigned char ChColorSensorR, unsigned char ChSonicSensor, unsigned char ChGyroSensor) {
+    unsigned char speedL = (unsigned char) -30;
+    unsigned char speedR = (unsigned char) -60;
     printf("linetrance program start\n");
     PrgStop();
     PrgStart();
     MotorInit();
-    MotorStart(ChMotorL | ChMotorR);
+    MotorStart(ChMotorL | ChMotorR | ChMotorB);
     MotorSet(ChMotorL, speedL);
     MotorSet(ChMotorR, speedR);
+    MotorSet(ChMotorB, (unsigned char) 50);
     int i;
-    for (i = 0; i < 100; i++) {
-        unsigned char col = CheckColor(GetSonor(ChColorSensorL)) | CheckColor(GetSonor(ChColorSensorL));
-        printf("get col: %d \n", col);
-        printf("speed: %d : %d \n", speedL, speedR);
-        switch(col) {
-            case COL_BLACK:
-            case COL_GRAY:
-                speedL = (unsigned char) -60;
-                speedR = (unsigned char) -50;
-                break;
-            case COL_WHITE:
-                speedL = (unsigned char) -50;
-                speedR = (unsigned char) -50;
-                break;
-            default:
-                break;
+    for (i = 0; i < 10000; i++) {
+        unsigned char val = GetSonor(ChGyroSensor);
+        printf("[%d]: ", val);
+        unsigned char deg = (val / 10) % 360;
+        printf("[%d]", val);
+        if (deg < 120) {
+            printf("RED");
+            SetLed(LED_RED);
+        } else if (deg < 240) {
+            printf("GREEN");
+            SetLed(LED_GREEN);
+        } else {
+            printf("ORANGE");
+            SetLed(LED_ORANGE);
         }
-        MotorSet(ChMotorL, speedL);
-        MotorSet(ChMotorR, speedR);
+        printf("\n");
+
+//        unsigned char col = CheckColor(GetSonor(ChColorSensorL)) | CheckColor(GetSonor(ChColorSensorL));
+//        printf("get col: %d \n", col);
+//        printf("speed: %d : %d \n", speedL, speedR);
+//        switch(col) {
+//            case COL_BLACK:
+//            case COL_GRAY:
+//                speedL = (unsigned char) -60;
+//                speedR = (unsigned char) -50;
+//                break;
+//            case COL_WHITE:
+//                speedL = (unsigned char) -50;
+//                speedR = (unsigned char) -50;
+//                break;
+//            default:
+//                break;
+//        }
+//        MotorSet(ChMotorL, speedL);
+//        MotorSet(ChMotorR, speedR);
         usleep(100000);
     }
     MotorStop(ChMotorL | ChMotorR);
@@ -308,6 +326,7 @@ int main(int argc, char *argv[]) {
     // config port
     unsigned char ChMotorL = CH_C;
     unsigned char ChMotorR = CH_B;
+    unsigned char ChMotorB = CH_D;
 
     unsigned char ChColorSensorL = CH_3;
     unsigned char ChColorSensorR = CH_2;
@@ -319,13 +338,13 @@ int main(int argc, char *argv[]) {
     ChgSensorMode(ChSonicSensor, MOD_DIST_CM);
     ChgSensorMode(ChGyroSensor, MOD_GYRO_ANG);
 
-    MotorReset(ChMotorL|ChMotorR);
+    MotorReset(ChMotorL|ChMotorR|ChMotorB);
 
     printf("ProgStart\n");
-//    linetrance(ChMotorL, ChMotorR, ChColorSensorL, ChColorSensorR, ChSonicSensor, ChGyroSensor);
+    linetrance(ChMotorL, ChMotorR, ChMotorB, ChColorSensorL, ChColorSensorR, ChSonicSensor, ChGyroSensor);
 //    debug_color_sensor(ChColorSensorL);
 //    debug_motor(ChMotorL, ChMotorR);
-    debug_gyro_sensor(ChGyroSensor);
+//    debug_gyro_sensor(ChGyroSensor);
 //    debug_sonic_sensor(ChSonicSensor);
     printf("ProgStop\n");
 
