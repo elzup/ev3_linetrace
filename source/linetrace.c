@@ -15,8 +15,10 @@
 #define BASE_COL_WHITE_UP 100
 
 #define COL_BLACK 0x00
-#define COL_GRAY 0x01
-#define COL_WHITE 0x02
+#define COL_WHITE 0x01
+#define COL_GRAY 0x02
+
+#define COL_LENG 2
 
 
 // PORTS
@@ -152,6 +154,25 @@ int MotorSet(unsigned char ch, unsigned char power) {
     ret = write(pwmfp,Buf,3);
     return ret;
 }
+void SetMotorLeft(char pw) {
+    MotorSet(ChMotorL, (unsigned char) -pw);
+}
+void SetMotorRight(char pw) {
+    MotorSet(ChMotorR, (unsigned char) -pw);
+}
+void SetMotorBack(char pw) {
+    MotorSet(ChMotorB, (unsigned char) pw);
+}
+void SetMotorLR(char pwL, char pwR) {
+    SetMotorLeft(pwL);
+    SetMotorRight(pwR);
+}
+void SetMotorAll(char pwL, char pwR, char pwB) {
+    SetMotorLeft(pwL);
+    SetMotorRight(pwR);
+    SetMotorBack(pwB);
+}
+
 int MotorReset() {
     unsigned char Buf[4];
     int ret;
@@ -227,11 +248,11 @@ void debug_motor() {
     MotorInit();
     MotorStart();
     sleep(2);
-    MotorSet(ChMotorL, 40);
-    MotorSet(ChMotorR, (unsigned char)-40);
+    SetMotorLeft(40);
+    SetMotorRight(-40);
     sleep(2);
-    MotorSet(ChMotorL, 0);
-    MotorSet(ChMotorR, 0);
+    SetMotorLeft(0);
+    SetMotorRight(0);
     MotorStop();
     PrgStop();
     printf("DebugMotor end\n");
@@ -282,49 +303,100 @@ unsigned char CheckColor(unsigned char val) {
 unsigned char CheckColorBit(unsigned char val) {
     return (val <= BASE_COL_GRAY_UP) ? COL_BLACK : COL_WHITE;
 }
+void print_col(char col) {
+    printf("[%s%s]", (col >> COL_LENG) ? "b" : "w", (col & 1) ? "b" : "w");
+}
+
 
 // main funcs
 void linetrance() {
-    unsigned char speedL = (unsigned char) -50;
-    unsigned char speedR = (unsigned char) -50;
+    char speed_base = 50;
+    char speedL = speed_base;
+    char speedR = speed_base;
+    char speedB = speed_base;
+    char log = 0;
+    char pre = 0;
+    char change_timer = 0;
     printf("linetrance program start\n");
     PrgStop();
     PrgStart();
     MotorInit();
     MotorStart();
-    MotorSet(ChMotorL, speedL);
-    MotorSet(ChMotorR, speedR);
-    MotorSet(ChMotorB, (unsigned char) 50);
+    SetMotorAll(speedL, speedR, speedB);
     int i;
     for (i = 0; i < 10000; i++) {
         unsigned char col_l = CheckColorBit(GetColorSensorLeft());
         unsigned char col_r = CheckColorBit(GetColorSensorRight());
-        unsigned char col = col_l | (col_r << 1);
-        printf("get col: %d \n", col);
-        printf("speed: %d : %d \n", speedL, speedR);
+        unsigned char col = (col_l << COL_LENG) | col_r;
+        if (col != pre) {
+            printf("%d -> %d\n", pre, col);
+            log = pre;
+        }
         switch(col) {
-            case COL_BLACK | (COL_BLACK << 1):
-                speedL = (unsigned char) -50;
-                speedR = (unsigned char) -50;
+            case (COL_BLACK << COL_LENG) | COL_BLACK:
+                switch(log) {
+                    case (COL_BLACK << COL_LENG) | COL_BLACK:
+                    case (COL_WHITE << COL_LENG) | COL_BLACK:
+                    case (COL_BLACK << COL_LENG) | COL_WHITE:
+                    case (COL_WHITE << COL_LENG) | COL_WHITE:
+                        speedL = speed_base;
+                        speedR = speed_base;
+                        break;
+                }
                 break;
-            case COL_BLACK | (COL_WHITE << 1):
-                speedL = (unsigned char) -30;
-                speedR = (unsigned char) -60;
+            case (COL_WHITE << COL_LENG) | COL_BLACK:
+                switch(log) {
+                    case (COL_BLACK << COL_LENG) | COL_BLACK:
+                    case (COL_WHITE << COL_LENG) | COL_BLACK:
+                        speedL = speed_base + 20;
+                        speedR = speed_base - 20;
+                        break;
+                    case (COL_BLACK << COL_LENG) | COL_WHITE:
+                    case (COL_WHITE << COL_LENG) | COL_WHITE:
+                        speedL = speed_base;
+                        speedR = speed_base + 20;
+                        break;
+                }
                 break;
-            case COL_WHITE | (COL_BLACK << 1):
-                speedL = (unsigned char) -60;
-                speedR = (unsigned char) -30;
+            case (COL_BLACK << COL_LENG) | COL_WHITE:
+                switch(log) {
+                    case (COL_BLACK << COL_LENG) | COL_BLACK:
+                    case (COL_WHITE << COL_LENG) | COL_BLACK:
+                        speedL = speed_base - 20;
+                        speedR = speed_base + 20;
+                        break;
+                    case (COL_BLACK << COL_LENG) | COL_WHITE:
+                    case (COL_WHITE << COL_LENG) | COL_WHITE:
+                        speedL = speed_base + 20;
+                        speedR = speed_base;
+                        break;
+                }
                 break;
-            case COL_WHITE | (COL_WHITE << 1):
-                speedL = (unsigned char) -50;
-                speedR = (unsigned char) -50;
-                break;
-
+            case (COL_WHITE << COL_LENG) | COL_WHITE:
+                printf("ww from ");
+                print_col(log);
+                printf("\n");
+                switch(log) {
+                    case (COL_WHITE << COL_LENG) | COL_BLACK:
+                        speedL = speed_base + 40;
+                        speedR = speed_base - 20;
+                        break;
+                    case (COL_BLACK << COL_LENG) | COL_WHITE:
+                        speedL = speed_base - 20;
+                        speedR = speed_base + 40;
+                        break;
+                    case (COL_WHITE << COL_LENG) | COL_WHITE:
+                    case (COL_BLACK << COL_LENG) | COL_BLACK:
+                        speedL = speed_base;
+                        speedR = speed_base;
+                        break;
+                }
                 break;
         }
-        MotorSet(ChMotorL, speedL);
-        MotorSet(ChMotorR, speedR);
-        usleep(100000);
+        printf("speed: %d : %d \n", speedL, speedR);
+        pre = col;
+        SetMotorLR(speedL, speedR);
+        usleep(10000);
     }
     MotorStop();
     PrgStop();
@@ -364,16 +436,16 @@ void wallstop() {
 int main(int argc, char *argv[]) {
 
     Init();
-//    ChgSensorMode(ChColorSensorL, MOD_COL_REFLECT);
-//    ChgSensorMode(ChColorSensorR, MOD_COL_REFLECT);
+    ChgSensorMode(ChColorSensorL, MOD_COL_REFLECT);
+    ChgSensorMode(ChColorSensorR, MOD_COL_REFLECT);
     ChgSensorMode(ChSonicSensor, MOD_DIST_CM);
 //    ChgSensorMode(ChGyroSensor, MOD_GYRO_ANG);
 
     MotorReset();
 
     printf("ProgStart\n");
-//    linetrance();
-    wallstop();
+    linetrance();
+//    wallstop();
 //    debug_color_sensor();
 //    debug_motor();
 //    debug_gyro_sensor();
