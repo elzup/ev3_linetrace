@@ -22,7 +22,7 @@
 //#define KP 1.85
 //#define KI 0.0005
 //#define KD 0.85
-#define DELTA_T 10
+#define DELTA_T 1
 
 #define COL_BLACK 0x00
 #define COL_WHITE 0x01
@@ -341,7 +341,7 @@ float pid(unsigned char sencer_val) {
 
 // main funcs
 void linetrance() {
-    char speed_base = 30;
+    char speed_base = 50;
     char speedL = speed_base;
     char speedR = speed_base;
     char speedB = speed_base;
@@ -357,8 +357,8 @@ void linetrance() {
         unsigned char val = GetColorSensorRight();
         float pid_v = pid(val);
         printf("pid_v: %2.2f\n", pid_v);
-        speedL = speed_base + (pid_v * 30 / 100);
-        speedR = speed_base - (pid_v * 30 / 100);
+        speedL = speed_base + (pid_v * 40 / 100);
+        speedR = speed_base - (pid_v * 40 / 100);
         SetMotorLR(speedL, speedR);
         usleep(1000);
     }
