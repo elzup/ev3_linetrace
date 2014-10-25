@@ -11,7 +11,7 @@
 
 // config
 #define BASE_COL_BLACK_UP 10
-#define BASE_COL_GRAY_UP 50
+#define BASE_COL_GRAY_UP 45
 #define BASE_COL_WHITE_UP 100
 
 #define BASE_COL_TARGET_VAL 30
@@ -326,6 +326,11 @@ float pid(unsigned char sencer_val) {
     diff[0] = diff[1];
     diff[1] = sencer_val - BASE_COL_TARGET_VAL; //偏差を取得
     integral += ((diff[0] + diff[1]) * DELTA_T / 2.0);
+    if (integral < -500) {
+        integral = -500;
+    } else if (integral > 500) {
+        integral = 500;
+    }
     p = KP * diff[1];   // P制御
     i = KI * integral;  //I制御
     d = KD * (diff[1] - diff[0]) / DELTA_T;  //D制御
@@ -345,6 +350,7 @@ void linetrance() {
     char speedL = speed_base;
     char speedR = speed_base;
     char speedB = speed_base;
+    sleep(3);
     printf("linetrance program start\n");
     PrgStop();
     PrgStart();
@@ -354,9 +360,20 @@ void linetrance() {
     int i;
     // 1msec * 100000 => 100sec
     for (i = 0; i < 100000; i++) {
-        unsigned char val = GetColorSensorRight();
-        float pid_v = pid(val);
-        printf("pid_v: %2.2f\n", pid_v);
+        unsigned char val_r = GetColorSensorRight();
+        unsigned char val_l = GetColorSensorLeft();
+        if (CheckColorBit(val_l) == COL_BLACK) {
+            if (CheckColorBit(val_r) != COL_WHITE) {
+                // B|B 若干右より
+                printf("out left small\n");
+                val_r -= 20;
+            } else {
+                // B|W 極度に右より
+                printf("out left over!!\n");
+                val_r = -30;
+            }
+        }
+        float pid_v = pid(val_r);
         speedL = speed_base + (pid_v * 40 / 100);
         speedR = speed_base - (pid_v * 40 / 100);
         SetMotorLR(speedL, speedR);
