@@ -14,6 +14,16 @@
 #define BASE_COL_GRAY_UP 50
 #define BASE_COL_WHITE_UP 100
 
+#define BASE_COL_TARGET_VAL 30
+
+#define KP 1.85
+#define KI 0.0005
+#define KD 0.85
+//#define KP 1.85
+//#define KI 0.0005
+//#define KD 0.85
+#define DELTA_T 10
+
 #define COL_BLACK 0x00
 #define COL_WHITE 0x01
 #define COL_GRAY 0x02
@@ -69,7 +79,11 @@ unsigned char ChColorSensorR = CH_2;
 unsigned char ChSonicSensor = CH_1;
 unsigned char ChGyroSensor = CH_4;
 
+float integral = 0;
+
 unsigned char ChUseMotors;
+
+int diff[2];
 
 typedef struct  {
     unsigned char Pressed[6];
@@ -307,17 +321,30 @@ void print_col(char col) {
     printf("[%s%s]", (col >> COL_LENG) ? "b" : "w", (col & 1) ? "b" : "w");
 }
 
+float pid(unsigned char sencer_val) {
+    float p,i,d, res;
+    diff[0] = diff[1];
+    diff[1] = sencer_val - BASE_COL_TARGET_VAL; //偏差を取得
+    integral += ((diff[0] + diff[1]) * DELTA_T / 2.0);
+    p = KP * diff[1];   // P制御
+    i = KI * integral;  //I制御
+    d = KD * (diff[1] - diff[0]) / DELTA_T;  //D制御
+    res = p + i + d;
+    printf("%2.2f %2.2f %2.2f => pid[%2.2f]\n", p, i, d, res);
+    if (res < -100) {
+        res = -100;
+    } else if (res > 100) {
+        res = 100;
+    }
+    return res;
+}
 
 // main funcs
 void linetrance() {
-    char speed_base = 80;
+    char speed_base = 30;
     char speedL = speed_base;
     char speedR = speed_base;
     char speedB = speed_base;
-    char log = 0;
-    char pre = 0;
-    int time_count = 0;
-    char time_count_min = 0;
     printf("linetrance program start\n");
     PrgStop();
     PrgStart();
@@ -327,82 +354,11 @@ void linetrance() {
     int i;
     // 1msec * 100000 => 100sec
     for (i = 0; i < 100000; i++) {
-        unsigned char col_l = CheckColorBit(GetColorSensorLeft());
-        unsigned char col_r = CheckColorBit(GetColorSensorRight());
-        unsigned char col = (col_l << COL_LENG) | col_r;
-        if (col != pre) {
-            printf("%d -> %d [ %d msec]\n", pre, col, time_count * 100);
-            log = pre;
-            time_count = time_count_min = 0;
-        }
-        if (time_count_min++ >= 100) {
-            time_count_min = 0;
-            time_count++;
-        }
-        switch(col) {
-            case (COL_BLACK << COL_LENG) | COL_BLACK:
-                switch(log) {
-                    case (COL_WHITE << COL_LENG) | COL_BLACK:
-                    case (COL_BLACK << COL_LENG) | COL_WHITE:
-                    case (COL_WHITE << COL_LENG) | COL_WHITE:
-                        speedL = speed_base + time_count;
-                        speedR = speed_base + time_count;
-                        break;
-//                    case (COL_BLACK << COL_LENG) | COL_BLACK:
-                }
-                break;
-            case (COL_WHITE << COL_LENG) | COL_BLACK:
-                switch(log) {
-                    case (COL_BLACK << COL_LENG) | COL_BLACK:
-                        // rightに線から出た時
-                        speedL = speed_base + 20 + time_count;
-                        speedR = speed_base + time_count;
-                        break;
-                    case (COL_BLACK << COL_LENG) | COL_WHITE:
-                    case (COL_WHITE << COL_LENG) | COL_WHITE:
-                        // rightから線に復帰した時
-                        speedL = speed_base;
-                        speedR = speed_base;
-//                        speedR = speed_base + 20;
-                        break;
-//                    case (COL_WHITE << COL_LENG) | COL_BLACK:
-                }
-                break;
-            case (COL_BLACK << COL_LENG) | COL_WHITE:
-                switch(log) {
-                    case (COL_BLACK << COL_LENG) | COL_BLACK:
-                    case (COL_WHITE << COL_LENG) | COL_BLACK:
-                        // leftに線から出た時
-                        speedL = speed_base + time_count;
-                        speedR = speed_base + 20 + time_count;
-                        break;
-                    case (COL_WHITE << COL_LENG) | COL_WHITE:
-                        // leftから線に復帰した時
-                        speedL = speed_base;
-                        speedR = speed_base;
-                        break;
-//                    case (COL_BLACK << COL_LENG) | COL_WHITE:
-                }
-                break;
-            case (COL_WHITE << COL_LENG) | COL_WHITE:
-                switch(log) {
-                    case (COL_WHITE << COL_LENG) | COL_BLACK:
-                        speedL = speed_base;
-                        speedR = speed_base - 60;
-                        break;
-                    case (COL_BLACK << COL_LENG) | COL_WHITE:
-                        speedL = speed_base - 60;
-                        speedR = speed_base;
-                        break;
-                    case (COL_BLACK << COL_LENG) | COL_BLACK:
-                        speedL = speed_base;
-                        speedR = speed_base;
-                        break;
-//                    case (COL_WHITE << COL_LENG) | COL_WHITE:
-                }
-                break;
-        }
-        pre = col;
+        unsigned char val = GetColorSensorRight();
+        float pid_v = pid(val);
+        printf("pid_v: %2.2f\n", pid_v);
+        speedL = speed_base + (pid_v * 30 / 100);
+        speedR = speed_base - (pid_v * 30 / 100);
         SetMotorLR(speedL, speedR);
         usleep(1000);
     }
