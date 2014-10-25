@@ -11,7 +11,7 @@
 
 // config
 #define BASE_COL_BLACK_UP 10
-#define BASE_COL_GRAY_UP 30
+#define BASE_COL_GRAY_UP 50
 #define BASE_COL_WHITE_UP 100
 
 #define COL_BLACK 0x00
@@ -310,13 +310,14 @@ void print_col(char col) {
 
 // main funcs
 void linetrance() {
-    char speed_base = 50;
+    char speed_base = 80;
     char speedL = speed_base;
     char speedR = speed_base;
     char speedB = speed_base;
     char log = 0;
     char pre = 0;
-    char change_timer = 0;
+    int time_count = 0;
+    char time_count_min = 0;
     printf("linetrance program start\n");
     PrgStop();
     PrgStart();
@@ -324,79 +325,86 @@ void linetrance() {
     MotorStart();
     SetMotorAll(speedL, speedR, speedB);
     int i;
-    for (i = 0; i < 10000; i++) {
+    // 1msec * 100000 => 100sec
+    for (i = 0; i < 100000; i++) {
         unsigned char col_l = CheckColorBit(GetColorSensorLeft());
         unsigned char col_r = CheckColorBit(GetColorSensorRight());
         unsigned char col = (col_l << COL_LENG) | col_r;
         if (col != pre) {
-            printf("%d -> %d\n", pre, col);
+            printf("%d -> %d [ %d msec]\n", pre, col, time_count * 100);
             log = pre;
+            time_count = time_count_min = 0;
+        }
+        if (time_count_min++ >= 100) {
+            time_count_min = 0;
+            time_count++;
         }
         switch(col) {
             case (COL_BLACK << COL_LENG) | COL_BLACK:
                 switch(log) {
-                    case (COL_BLACK << COL_LENG) | COL_BLACK:
                     case (COL_WHITE << COL_LENG) | COL_BLACK:
                     case (COL_BLACK << COL_LENG) | COL_WHITE:
                     case (COL_WHITE << COL_LENG) | COL_WHITE:
-                        speedL = speed_base;
-                        speedR = speed_base;
+                        speedL = speed_base + time_count;
+                        speedR = speed_base + time_count;
                         break;
+//                    case (COL_BLACK << COL_LENG) | COL_BLACK:
                 }
                 break;
             case (COL_WHITE << COL_LENG) | COL_BLACK:
                 switch(log) {
                     case (COL_BLACK << COL_LENG) | COL_BLACK:
-                    case (COL_WHITE << COL_LENG) | COL_BLACK:
-                        speedL = speed_base + 20;
-                        speedR = speed_base - 20;
+                        // rightに線から出た時
+                        speedL = speed_base + 20 + time_count;
+                        speedR = speed_base + time_count;
                         break;
                     case (COL_BLACK << COL_LENG) | COL_WHITE:
                     case (COL_WHITE << COL_LENG) | COL_WHITE:
+                        // rightから線に復帰した時
                         speedL = speed_base;
-                        speedR = speed_base + 20;
+                        speedR = speed_base;
+//                        speedR = speed_base + 20;
                         break;
+//                    case (COL_WHITE << COL_LENG) | COL_BLACK:
                 }
                 break;
             case (COL_BLACK << COL_LENG) | COL_WHITE:
                 switch(log) {
                     case (COL_BLACK << COL_LENG) | COL_BLACK:
                     case (COL_WHITE << COL_LENG) | COL_BLACK:
-                        speedL = speed_base - 20;
-                        speedR = speed_base + 20;
+                        // leftに線から出た時
+                        speedL = speed_base + time_count;
+                        speedR = speed_base + 20 + time_count;
                         break;
-                    case (COL_BLACK << COL_LENG) | COL_WHITE:
                     case (COL_WHITE << COL_LENG) | COL_WHITE:
-                        speedL = speed_base + 20;
+                        // leftから線に復帰した時
+                        speedL = speed_base;
                         speedR = speed_base;
                         break;
+//                    case (COL_BLACK << COL_LENG) | COL_WHITE:
                 }
                 break;
             case (COL_WHITE << COL_LENG) | COL_WHITE:
-                printf("ww from ");
-                print_col(log);
-                printf("\n");
                 switch(log) {
                     case (COL_WHITE << COL_LENG) | COL_BLACK:
-                        speedL = speed_base + 40;
-                        speedR = speed_base - 20;
+                        speedL = speed_base;
+                        speedR = speed_base - 60;
                         break;
                     case (COL_BLACK << COL_LENG) | COL_WHITE:
-                        speedL = speed_base - 20;
-                        speedR = speed_base + 40;
+                        speedL = speed_base - 60;
+                        speedR = speed_base;
                         break;
-                    case (COL_WHITE << COL_LENG) | COL_WHITE:
                     case (COL_BLACK << COL_LENG) | COL_BLACK:
                         speedL = speed_base;
                         speedR = speed_base;
                         break;
+//                    case (COL_WHITE << COL_LENG) | COL_WHITE:
                 }
                 break;
         }
-        printf("speed: %d : %d \n", speedL, speedR);
         pre = col;
         SetMotorLR(speedL, speedR);
-        usleep(10000);
+        usleep(1000);
     }
     MotorStop();
     PrgStop();
