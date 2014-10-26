@@ -14,10 +14,10 @@
 #define BASE_COL_GRAY_UP 45
 #define BASE_COL_WHITE_UP 100
 
-unsigned char target_col = 30;
-float pid_kp = 1.0;
+unsigned char target_col = 10;
+float pid_kp = 1.8;
 float pid_ki = 0.0005;
-float pid_kd = 0.85;
+float pid_kd = 0.8;
 //#define pid_kp 1.85
 //#define pid_ki 0.0005
 //#define pid_kd 0.85
@@ -26,8 +26,11 @@ float pid_kd = 0.85;
 #define COL_BLACK 0x00
 #define COL_WHITE 0x01
 #define COL_GRAY 0x02
-
 #define COL_LENG 2
+#define COLP_BB ((COL_BLACK << COL_LENG) | COL_BLACK)
+#define COLP_BW ((COL_BLACK << COL_LENG) | COL_WHITE)
+#define COLP_WB ((COL_WHITE << COL_LENG) | COL_BLACK)
+#define COLP_WW ((COL_WHITE << COL_LENG) | COL_WHITE)
 
 
 // PORTS
@@ -316,10 +319,10 @@ unsigned char CheckColorBit(unsigned char val) {
     return (val <= BASE_COL_GRAY_UP) ? COL_BLACK : COL_WHITE;
 }
 void print_col(char col) {
-    printf("[%s%s]", (col >> COL_LENG) ? "b" : "w", (col & 1) ? "b" : "w");
+    printf("[%s%s]<%d>", (col >> COL_LENG) == COL_BLACK ? "b" : "w", (col & 1) == COL_BLACK ? "b" : "w", col);
 }
 
-float pid(unsigned char sencer_val) {
+float pid(char sencer_val) {
     float p,i,d, res;
     diff[0] = diff[1];
     diff[1] = sencer_val - target_col; //偏差を取得
@@ -333,7 +336,7 @@ float pid(unsigned char sencer_val) {
     i = pid_ki * integral;  //I制御
     d = pid_kd * (diff[1] - diff[0]) / DELTA_T;  //D制御
     res = p + i + d;
-    printf("%2.2f %2.2f %2.2f => pid[%2.2f]\n", p, i, d, res);
+//    printf("%2.2f %2.2f %2.2f => pid[%2.2f]\n", p, i, d, res);
     if (res < -100) {
         res = -100;
     } else if (res > 100) {
@@ -344,7 +347,7 @@ float pid(unsigned char sencer_val) {
 
 // main funcs
 void linetrance() {
-    char speed_base = 50;
+    char speed_base = 30;
     char speedL = speed_base;
     char speedR = speed_base;
     char speedB = speed_base;
@@ -355,29 +358,48 @@ void linetrance() {
     MotorInit();
     MotorStart();
     SetMotorAll(speedL, speedR, speedB);
+    int generation = 0;
+    int gene_c = 0;
     int i;
+    unsigned char log = 0;
+    unsigned char pre_col = 0;
     // 1msec * 100000 => 100sec
     for (i = 0; i < 100000; i++) {
-        unsigned char val_r = GetColorSensorRight();
-        unsigned char val_l = GetColorSensorLeft();
-        if (CheckColorBit(val_l) == COL_BLACK) {
-            val_r = 0;
-            //if (CheckColorBit(val_r) != COL_WHITE) {
-            //    // B|B 若干右より
-            //    printf("out left small\n");
-            //    val_r = 0;
-            //} else {
-            //    // B|W 極度に右より
-            //    printf("out left over!!\n");
-            //    val_r = 0;
-            //}
+        if (gene_c > 100) {
+            generation++;
+            gene_c = 0;
+            if (generation % 10 == 0) {
+                printf("g: %d\n", generation);
+            }
         }
-        float pid_v = pid(val_r);
-        printf("<%f>\n", pid_v);
-        speedL = speed_base + (pid_v * 40 / 100);
-        speedR = speed_base - (pid_v * 40 / 100);
+        gene_c++;
+        char val_r = GetColorSensorRight();
+        char val_l = GetColorSensorLeft();
+        unsigned char val_r_c = CheckColor(val_r);
+        unsigned char val_r_b = CheckColorBit(val_r);
+        unsigned char val_l_b = CheckColorBit(val_l);
+        if (val_r_b == COL_GRAY) {
+            val_r = 10;
+        }
+        unsigned char col = (CheckColorBit(val_l) << COL_LENG) | CheckColorBit(val_r);
+//        if (col != pre_col) {
+//            log = pre_col;
+//        }
+//        if (col == COLP_BW || col == COLP_BB) {
+//            val_r = 5;
+//        }
+//        float pid_v = pid(val_r);
+//        printf("<%f>\n", pid_v);
+        //if ((col == COLP_WW && (log == COLP_BB || log == COLP_BW))) {
+        //    // 極度に右脱線
+        //    printf("right out!!\n");
+        //    pid_v *= -1;
+        //}
+        speedL = speed_base + (pid_v * 30 / 100);
+        speedR = speed_base - (pid_v * 30 / 100);
         SetMotorLR(speedL, speedR);
 //        usleep(100000);
+        pre_col = col;
         usleep(1000);
     }
     MotorStop();
@@ -413,16 +435,16 @@ void wallstop() {
     PrgStop();
 }
 
-
 // main method
 int main(int argc, char *argv[]) {
     if (argc >= 2) {
         target_col = (unsigned char) atoi(argv[1]);
     }
-    if (argc >= 5) {
+    if (argc >= 3) {
         pid_kp = atof(argv[2]);
-        pid_ki = atof(argv[3]);
-        pid_kd = atof(argv[4]);
+    }
+    if (argc >= 4) {
+        pid_kd = atof(argv[3]);
     }
     Init();
     ChgSensorMode(ChColorSensorL, MOD_COL_REFLECT);
