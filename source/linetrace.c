@@ -14,14 +14,13 @@
 #define BASE_COL_GRAY_UP 45
 #define BASE_COL_WHITE_UP 100
 
-#define BASE_COL_TARGET_VAL 30
-
-#define KP 1.85
-#define KI 0.0005
-#define KD 0.85
-//#define KP 1.85
-//#define KI 0.0005
-//#define KD 0.85
+unsigned char target_col = 30;
+float pid_kp = 1.0;
+float pid_ki = 0.0005;
+float pid_kd = 0.85;
+//#define pid_kp 1.85
+//#define pid_ki 0.0005
+//#define pid_kd 0.85
 #define DELTA_T 1
 
 #define COL_BLACK 0x00
@@ -109,7 +108,6 @@ unsigned char GetGyroSensor() {
 }
 
 int ChgSensorMode(unsigned char ch, int mode) {
-    int i;
     int ret;
     DEVCON DevCon;
 //    for (i = 0; i < 4; i++) {
@@ -324,16 +322,16 @@ void print_col(char col) {
 float pid(unsigned char sencer_val) {
     float p,i,d, res;
     diff[0] = diff[1];
-    diff[1] = sencer_val - BASE_COL_TARGET_VAL; //偏差を取得
+    diff[1] = sencer_val - target_col; //偏差を取得
     integral += ((diff[0] + diff[1]) * DELTA_T / 2.0);
     if (integral < -500) {
         integral = -500;
     } else if (integral > 500) {
         integral = 500;
     }
-    p = KP * diff[1];   // P制御
-    i = KI * integral;  //I制御
-    d = KD * (diff[1] - diff[0]) / DELTA_T;  //D制御
+    p = pid_kp * diff[1];   // P制御
+    i = pid_ki * integral;  //I制御
+    d = pid_kd * (diff[1] - diff[0]) / DELTA_T;  //D制御
     res = p + i + d;
     printf("%2.2f %2.2f %2.2f => pid[%2.2f]\n", p, i, d, res);
     if (res < -100) {
@@ -363,20 +361,23 @@ void linetrance() {
         unsigned char val_r = GetColorSensorRight();
         unsigned char val_l = GetColorSensorLeft();
         if (CheckColorBit(val_l) == COL_BLACK) {
-            if (CheckColorBit(val_r) != COL_WHITE) {
-                // B|B 若干右より
-                printf("out left small\n");
-                val_r -= 20;
-            } else {
-                // B|W 極度に右より
-                printf("out left over!!\n");
-                val_r = -30;
-            }
+            val_r = 0;
+            //if (CheckColorBit(val_r) != COL_WHITE) {
+            //    // B|B 若干右より
+            //    printf("out left small\n");
+            //    val_r = 0;
+            //} else {
+            //    // B|W 極度に右より
+            //    printf("out left over!!\n");
+            //    val_r = 0;
+            //}
         }
         float pid_v = pid(val_r);
+        printf("<%f>\n", pid_v);
         speedL = speed_base + (pid_v * 40 / 100);
         speedR = speed_base - (pid_v * 40 / 100);
         SetMotorLR(speedL, speedR);
+//        usleep(100000);
         usleep(1000);
     }
     MotorStop();
@@ -415,7 +416,14 @@ void wallstop() {
 
 // main method
 int main(int argc, char *argv[]) {
-
+    if (argc >= 2) {
+        target_col = (unsigned char) atoi(argv[1]);
+    }
+    if (argc >= 5) {
+        pid_kp = atof(argv[2]);
+        pid_ki = atof(argv[3]);
+        pid_kd = atof(argv[4]);
+    }
     Init();
     ChgSensorMode(ChColorSensorL, MOD_COL_REFLECT);
     ChgSensorMode(ChColorSensorR, MOD_COL_REFLECT);
