@@ -14,14 +14,15 @@
 #define BASE_COL_GRAY_UP 45
 #define BASE_COL_WHITE_UP 100
 
-unsigned char target_col = 10;
-float pid_kp = 1.8;
-float pid_ki = 0.0005;
-float pid_kd = 0.8;
+unsigned char target_col = 30;
+float pid_kp = 15.0;
+float pid_ki = 0.1;
+float pid_kd = 1.0;
 //#define pid_kp 1.85
 //#define pid_ki 0.0005
 //#define pid_kd 0.85
-#define DELTA_T 1
+//#define DELTA_T 10
+float delta_t = 0.001;
 
 #define COL_BLACK 0x00
 #define COL_WHITE 0x01
@@ -85,7 +86,9 @@ float integral = 0;
 
 unsigned char ChUseMotors;
 
-int diff[2];
+#define LEFT 0
+#define RIGHT 1
+int diff[2][2];
 
 typedef struct  {
     unsigned char Pressed[6];
@@ -322,19 +325,21 @@ void print_col(char col) {
     printf("[%s%s]<%d>", (col >> COL_LENG) == COL_BLACK ? "b" : "w", (col & 1) == COL_BLACK ? "b" : "w", col);
 }
 
-float pid(char sencer_val) {
+float pid(char sencer_val, unsigned char side) {
     float p,i,d, res;
-    diff[0] = diff[1];
-    diff[1] = sencer_val - target_col; //偏差を取得
-    integral += ((diff[0] + diff[1]) * DELTA_T / 2.0);
+    diff[side][0] = diff[side][1];
+    diff[side][1] = sencer_val - target_col; //偏差を取得
+    integral += ((diff[side][0] + diff[side][1]) * delta_t / 2.0);
     if (integral < -500) {
         integral = -500;
     } else if (integral > 500) {
         integral = 500;
     }
-    p = pid_kp * diff[1];   // P制御
+    p = pid_kp * diff[side][1];   // P制御
     i = pid_ki * integral;  //I制御
-    d = pid_kd * (diff[1] - diff[0]) / DELTA_T;  //D制御
+    d = pid_kd * (diff[side][1] - diff[side][0]) / delta_t;  //D制御
+
+//    回転量 = 比例ゲイン×（センサ値 - 黒値） / （白値 - 黒値）＋ 微分ゲイン×（センサ値 - ひとつ前のセンサ値）＋積分ゲイン＊回転量の積分値
     res = p + i + d;
 //    printf("%2.2f %2.2f %2.2f => pid[%2.2f]\n", p, i, d, res);
     if (res < -100) {
@@ -347,7 +352,7 @@ float pid(char sencer_val) {
 
 // main funcs
 void linetrance() {
-    char speed_base = 30;
+    char speed_base = 60;
     char speedL = speed_base;
     char speedR = speed_base;
     char speedB = speed_base;
@@ -378,25 +383,29 @@ void linetrance() {
         unsigned char val_r_c = CheckColor(val_r);
         unsigned char val_r_b = CheckColorBit(val_r);
         unsigned char val_l_b = CheckColorBit(val_l);
-        if (val_r_b == COL_GRAY) {
-            val_r = 10;
-        }
         unsigned char col = (CheckColorBit(val_l) << COL_LENG) | CheckColorBit(val_r);
-//        if (col != pre_col) {
-//            log = pre_col;
-//        }
+        if (col != pre_col) {
+            log = pre_col;
+        }
 //        if (col == COLP_BW || col == COLP_BB) {
 //            val_r = 5;
 //        }
-//        float pid_v = pid(val_r);
-//        printf("<%f>\n", pid_v);
-        //if ((col == COLP_WW && (log == COLP_BB || log == COLP_BW))) {
-        //    // 極度に右脱線
-        //    printf("right out!!\n");
-        //    pid_v *= -1;
-        //}
-        speedL = speed_base + (pid_v * 30 / 100);
-        speedR = speed_base - (pid_v * 30 / 100);
+        printf("(col:%d == WW: %d) (log:%d == WB: %d)\n", col, COLP_WW, log, COLP_WB);
+        if (col == COLP_WW && log == COLP_WB) {
+            // 極度に左脱線
+            printf("left out!!\n");
+            val_r = 3;
+        }
+        if (col == COLP_WW && log == COLP_BW) {
+            // 極度に右脱線
+            printf("right out!!\n");
+            val_l = 3;
+        }
+        float pid_vl = pid(val_l, LEFT);
+        float pid_vr = pid(val_r, RIGHT);
+//        printf("<%f>\n", pid_vr);
+        speedL = speed_base + (pid_vl * 30 / 100);
+        speedR = speed_base + (pid_vr * 30 / 100);
         SetMotorLR(speedL, speedR);
 //        usleep(100000);
         pre_col = col;
@@ -422,7 +431,7 @@ void wallstop() {
     for (i = 0; i < 100; i++) {
         int val = (int) GetSonicSensor();
         unsigned char sp = (unsigned char)(val * 10 / 255);
-        printf("val: %04d, sp: %04d, gyro: %04d\n", (int) val, (int) sp, (int) GetGyroSensor);
+//        printf("val: %04d, sp: %04d, gyro: %04d\n", (int) val, (int) sp, (int) GetGyroSensor);
         if (val <= 0 || sp < 10) {
             sp = 0;
         }
@@ -444,7 +453,13 @@ int main(int argc, char *argv[]) {
         pid_kp = atof(argv[2]);
     }
     if (argc >= 4) {
-        pid_kd = atof(argv[3]);
+        pid_ki = atof(argv[3]);
+    }
+    if (argc >= 5) {
+        pid_kd = atof(argv[4]);
+    }
+    if (argc >= 6) {
+        delta_t = atof(argv[5]);
     }
     Init();
     ChgSensorMode(ChColorSensorL, MOD_COL_REFLECT);
