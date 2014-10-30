@@ -15,16 +15,18 @@
 #define BASE_COL_WHITE_UP 100
 
 unsigned char target_col = 30;
-float pid_kp_init = 2.5;
+float pid_kp_init = 1.3;
 float pid_kp_max = 4.0;
 float pid_kp;
 float pid_ki = 0.01;
-float pid_kd = 1.2;
+float pid_kd = 3.0;
 //#define pid_kp 1.85
 //#define pid_ki 0.0005
 //#define pid_kd 0.85
 //#define DELTA_T 10
 float delta_t = 1;
+
+unsigned char mode1_time = 3;
 
 char speed_base = 60;
 char speed_diff_init = 30;
@@ -404,10 +406,23 @@ void linetrance() {
     int generation = 0;
     int gene_c = 0;
     int i;
+    // mode 制御
+    unsigned char mode = 0;
+    // mode 0 Start 直線部分 --
+    printf("mode 0!!\n");
+    speed_base = 80;
+    speed_diff_init = 20;
+    pid_kp_init = 1.3;
+    pid_kp_max = 2.0;
+    pid_kd = 3.0;
+    // --
+
     unsigned char log = 0;
     unsigned char pre_col = 0;
     // 1msec * 100000 => 100sec
     for (i = 0; i < 100000; i++) {
+        unsigned char g = GetGyroSensor();
+        // 壁ストップ処理
         if (GetColorSensorHead() > 5) {
             SetMotorAll(0, 0, 0);
             usleep(10000);
@@ -417,9 +432,7 @@ void linetrance() {
         if (gene_c > 100) {
             generation++;
             gene_c = 0;
-            if (generation % 10 == 0) {
-                printf("g: %d\n", generation);
-            }
+            printf("g: %d,gyro[%d]\n", generation, g);
         }
         gene_c++;
         char val_r = GetColorSensorRight();
@@ -434,23 +447,58 @@ void linetrance() {
             // switch pid, speed, vlaues
             if (col == COLP_WW) {
                 pid_kp = pid_kp_max;
-//                speed_diff = speed_diff_init + speed_diff_diff;
+                speed_diff = speed_diff_init + speed_diff_diff;
             } else {
                 pid_kp = pid_kp_init;
-//                speed_diff = speed_diff_init;
+                speed_diff = speed_diff_init;
             }
+
+            if (mode == 0 && col == COLP_WW && generation > mode1_time) {
+                // mode 1 first curve 第一カーブ --
+                printf("mode 1!!\n");
+                printf("g:: %d\n", g);
+                mode = 1;
+                speed_base = 70;
+                speed_diff_init = 35;
+                pid_kp_init = 2.5;
+                pid_kp_max = 3.5;
+                pid_kd = 0.8;
+                // --
+            }
+            if (mode == 2 && col == COLP_WW && 160 <= g && g < 224) {
+                // mode 3 second curve 第二カーブ --
+                printf("mode 3!!\n");
+                printf("g:: %d\n", g);
+                mode = 3;
+                speed_base = 70;
+                speed_diff_init = 35;
+                pid_kp_init = 2.5;
+                pid_kp_max = 3.5;
+                pid_kd = 0.8;
+                // --
+            }
+        }
+        if (mode == 1 && col != COLP_WW && 160 <= g && g < 224) {
+            // mode 2 second strait 直線部分 --
+            printf("mode 2!!\n");
+            printf("g:: %d\n", g);
+            mode = 2;
+            speed_base = 80;
+            speed_diff_init = 20;
+            pid_kp_init = 1.3;
+            pid_kp_max = 2.0;
+            pid_kd = 3.0;
+            // --
         }
 //        if (col == COLP_BW || col == COLP_BB) {
 //            val_r = 5;
 //        }
 //        printf("(col:%d == WW: %d) (log:%d == WB: %d)\n", col, COLP_WW, log, COLP_WB);
         if (col == COLP_WW && log == COLP_WB) {
-            // 極度に左脱線
-            printf("left out!!\n");
+//            printf("left out!!\n");
             val_r = 3;
         } else if (col == COLP_WW && log == COLP_BW) {
-            // 極度に右脱線
-            printf("right out!!\n");
+//            printf("right out!!\n");
             val_l = 3;
         }
         float pid_vl = pid(val_l, LEFT);
@@ -458,17 +506,7 @@ void linetrance() {
 //        printf("<%f>\n", pid_vr);
         speedL = speed_base + (pid_vl * speed_diff / 100);
         speedR = speed_base + (pid_vr * speed_diff / 100);
-        //if (col == COLP_WW && log == COLP_BW) {
-        //    // 極度に右脱線
-        //    speedL = 50;
-        //}
-        //if (col == COLP_WW && log == COLP_WB) {
-        //    // 極度に左脱線
-        //    printf("left out!!\n");
-        //    speedR = 50;
-        //}
         SetMotorLR(speedL, speedR);
-//        usleep(100000);
         pre_col = col;
         usleep(10000);
     }
