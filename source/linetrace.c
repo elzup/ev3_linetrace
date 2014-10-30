@@ -15,17 +15,20 @@
 #define BASE_COL_WHITE_UP 100
 
 unsigned char target_col = 30;
-float pid_kp = 15.0;
-float pid_ki = 0.1;
-float pid_kd = 1.0;
+float pid_kp_init = 2.5;
+float pid_kp_max = 4.0;
+float pid_kp;
+float pid_ki = 0.01;
+float pid_kd = 1.2;
 //#define pid_kp 1.85
 //#define pid_ki 0.0005
 //#define pid_kd 0.85
 //#define DELTA_T 10
-float delta_t = 0.001;
+float delta_t = 1;
 
-char speed_base = 100;
-char speed_diff = 20;
+char speed_base = 60;
+char speed_diff_init = 30;
+char speed_diff_diff = 0;
 
 // constantses
 // line color
@@ -64,7 +67,7 @@ char speed_diff = 20;
 
 // LED
 #define LED_BLACK 0+'0'
-#define LED_GREEN 1+'0'
+#define LED_GREEN 1+'0'8
 #define LED_RED 2+'0'
 #define LED_ORANGE 3+'0'
 #define LED_GREEN_FLASH 4+'0'
@@ -313,6 +316,28 @@ void debug_gyro_sensor() {
     printf("%d\n", val);
     printf("DebugGyroSensor end\n");
 }
+void debug_sensors() {
+    char speedL = speed_base;
+    char speedR = speed_base;
+    char speedB = speed_base;
+    sleep(3);
+    printf("linetrance program start\n");
+    PrgStop();
+    PrgStart();
+    MotorInit();
+//    MotorStart();
+    // 1msec * 100000 => 100sec
+    int i;
+    for (i = 0; i < 100000; i++) {
+        int sonic_v = GetSonicSensor();
+        int gyro_v = GetGyroSensor();
+        printf("sonic: %d, gyro: %d\n", sonic_v, gyro_v);
+        usleep(100000);
+    }
+    MotorStop();
+    PrgStop();
+}
+
 // helpers
 unsigned char CheckColor(unsigned char val) {
     if (val <= BASE_COL_BLACK_UP) {
@@ -387,8 +412,17 @@ void linetrance() {
         unsigned char val_r_b = CheckColorBit(val_r);
         unsigned char val_l_b = CheckColorBit(val_l);
         unsigned char col = (CheckColorBit(val_l) << COL_LENG) | CheckColorBit(val_r);
+        char speed_diff = speed_diff_init;
         if (col != pre_col) {
             log = pre_col;
+            // switch pid, speed, vlaues
+            if (col == COLP_WW) {
+                pid_kp = pid_kp_max;
+//                speed_diff = speed_diff_init + speed_diff_diff;
+            } else {
+                pid_kp = pid_kp_init;
+//                speed_diff = speed_diff_init;
+            }
         }
 //        if (col == COLP_BW || col == COLP_BB) {
 //            val_r = 5;
@@ -398,16 +432,10 @@ void linetrance() {
             // 極度に左脱線
             printf("left out!!\n");
             val_r = 3;
-        }
-        if (col == COLP_WW && log == COLP_BW) {
+        } else if (col == COLP_WW && log == COLP_BW) {
             // 極度に右脱線
             printf("right out!!\n");
             val_l = 3;
-        }
-        if (col == COLP_WW && log == COLP_WB) {
-            // 極度に左脱線
-            printf("left out!!\n");
-            val_r = 3;
         }
         float pid_vl = pid(val_l, LEFT);
         float pid_vr = pid(val_r, RIGHT);
@@ -426,7 +454,7 @@ void linetrance() {
         SetMotorLR(speedL, speedR);
 //        usleep(100000);
         pre_col = col;
-        usleep(1000);
+        usleep(10000);
     }
     MotorStop();
     PrgStop();
@@ -447,7 +475,7 @@ void wallstop() {
     int i;
     for (i = 0; i < 100; i++) {
         int val = (int) GetSonicSensor();
-        unsigned char sp = (unsigned char)(val * 10 / 255);
+        char sp = (unsigned char)(val * 10 / 255);
 //        printf("val: %04d, sp: %04d, gyro: %04d\n", (int) val, (int) sp, (int) GetGyroSensor);
         if (val <= 0 || sp < 10) {
             sp = 0;
@@ -465,7 +493,7 @@ void wallstop() {
 int main(int argc, char *argv[]) {
     // get args pid values
     if (argc >= 2) {
-        pid_kp = atof(argv[1]);
+        pid_kp_init = atof(argv[1]);
     }
     if (argc >= 3) {
         pid_ki = atof(argv[2]);
@@ -481,13 +509,23 @@ int main(int argc, char *argv[]) {
         speed_base = atoi(argv[5]);
     }
     if (argc >= 7) {
-        speed_diff = atoi(argv[6]);
+        speed_diff_init = atoi(argv[6]);
     }
+    if (argc >= 8) {
+        speed_diff_diff = atoi(argv[7]);
+    }
+    if (argc >= 9) {
+        pid_kp_max = atoi(argv[8]);
+    }
+    if (argc >= 10) {
+        target_col = atoi(argv[9]);
+    }
+    pid_kp = pid_kp_init;
     Init();
     ChgSensorMode(ChColorSensorL, MOD_COL_REFLECT);
     ChgSensorMode(ChColorSensorR, MOD_COL_REFLECT);
-    ChgSensorMode(ChSonicSensor, MOD_DIST_CM);
-//    ChgSensorMode(ChGyroSensor, MOD_GYRO_ANG);
+    ChgSensorMode(ChSonicSensor, MOD_DIST_INC);
+    ChgSensorMode(ChGyroSensor, MOD_GYRO_ANG);
 
     MotorReset();
 
@@ -498,6 +536,7 @@ int main(int argc, char *argv[]) {
 //    debug_motor();
 //    debug_gyro_sensor();
 //    debug_sonic_sensor();
+//    debug_sensors();
     printf("ProgStop\n");
 
     Fina();
