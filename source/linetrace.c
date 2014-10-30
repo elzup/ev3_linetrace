@@ -67,7 +67,7 @@ char speed_diff_diff = 0;
 
 // LED
 #define LED_BLACK 0+'0'
-#define LED_GREEN 1+'0'8
+#define LED_GREEN 1+'0'
 #define LED_RED 2+'0'
 #define LED_ORANGE 3+'0'
 #define LED_GREEN_FLASH 4+'0'
@@ -85,6 +85,7 @@ unsigned char ChMotorB = CH_D;
 
 unsigned char ChColorSensorL = CH_3;
 unsigned char ChColorSensorR = CH_2;
+unsigned char ChColorSensorH = CH_1;
 
 unsigned char ChSonicSensor = CH_1;
 unsigned char ChGyroSensor = CH_4;
@@ -112,6 +113,9 @@ unsigned char GetColorSensorLeft() {
 }
 unsigned char GetColorSensorRight() {
     return GetSonor(ChColorSensorR);
+}
+unsigned char GetColorSensorHead() {
+    return GetSonor(ChColorSensorH);
 }
 int GetSonicSensor() {
     return (int) pUart->Raw[ChSonicSensor][pUart->Actual[ChSonicSensor]][0];
@@ -384,7 +388,13 @@ void linetrance() {
     char speedL = speed_base;
     char speedR = speed_base;
     char speedB = speed_base;
-    sleep(3);
+    SetLed(LED_BLACK);
+    sleep(1);
+    SetLed(LED_RED);
+    sleep(1);
+    SetLed(LED_ORANGE);
+    sleep(1);
+    SetLed(LED_GREEN);
     printf("linetrance program start\n");
     PrgStop();
     PrgStart();
@@ -398,6 +408,12 @@ void linetrance() {
     unsigned char pre_col = 0;
     // 1msec * 100000 => 100sec
     for (i = 0; i < 100000; i++) {
+        if (GetColorSensorHead() > 5) {
+            SetMotorAll(0, 0, 0);
+            usleep(10000);
+            continue;
+        }
+        SetMotorBack(speedB);
         if (gene_c > 100) {
             generation++;
             gene_c = 0;
@@ -460,11 +476,37 @@ void linetrance() {
     PrgStop();
 }
 
+void maxwallstop() {
+    SetLed(LED_BLACK);
+    sleep(1);
+    SetLed(LED_RED);
+    sleep(1);
+    SetLed(LED_ORANGE);
+    sleep(1);
+    SetLed(LED_GREEN);
+    printf("maxwallstop program start\n");
+    PrgStop();
+    PrgStart();
+    MotorInit();
+    MotorStart();
+    int i;
+    for (i = 0; i < 100000; i++) {
+        if (GetColorSensorHead() > 1) {
+            SetMotorAll(0, 0, 0);
+            usleep(10000);
+            continue;
+        }
+        SetMotorAll(100, 100, 100);
+    }
+    MotorStop();
+    PrgStop();
+}
+
 //wallstop
 void wallstop() {
     unsigned char speedL = (unsigned char) -50;
     unsigned char speedR = (unsigned char) -50;
-    printf("linetrance program start\n");
+    printf("wallstop program start\n");
     PrgStop();
     PrgStart();
     MotorInit();
@@ -524,13 +566,15 @@ int main(int argc, char *argv[]) {
     Init();
     ChgSensorMode(ChColorSensorL, MOD_COL_REFLECT);
     ChgSensorMode(ChColorSensorR, MOD_COL_REFLECT);
-    ChgSensorMode(ChSonicSensor, MOD_DIST_INC);
+    ChgSensorMode(ChColorSensorH, MOD_COL_REFLECT);
+//    ChgSensorMode(ChSonicSensor, MOD_DIST_INC);
     ChgSensorMode(ChGyroSensor, MOD_GYRO_ANG);
 
     MotorReset();
 
     printf("ProgStart\n");
     linetrance();
+//    maxwallstop();
 //    wallstop();
 //    debug_color_sensor();
 //    debug_motor();
