@@ -83,14 +83,13 @@ char speed_diff_diff = 0;
 
 unsigned char ChMotorL = CH_C;
 unsigned char ChMotorR = CH_B;
-unsigned char ChMotorB = CH_D;
 
 unsigned char ChColorSensorL = CH_3;
 unsigned char ChColorSensorR = CH_2;
 unsigned char ChColorSensorH = CH_1;
 
-unsigned char ChSonicSensor = CH_1;
-unsigned char ChGyroSensor = CH_4;
+unsigned char ChSonicSensor = CH_4;
+unsigned char ChGyroSensor = CH_1;
 
 float integral = 0;
 
@@ -188,30 +187,21 @@ int MotorSet(unsigned char ch, unsigned char power) {
     return ret;
 }
 void SetMotorLeft(char pw) {
-    MotorSet(ChMotorL, (unsigned char) -pw);
+    MotorSet(ChMotorL, (unsigned char) pw);
 }
 void SetMotorRight(char pw) {
-    MotorSet(ChMotorR, (unsigned char) -pw);
-}
-void SetMotorBack(char pw) {
-    MotorSet(ChMotorB, (unsigned char) pw);
+    MotorSet(ChMotorR, (unsigned char) pw);
 }
 void SetMotorLR(char pwL, char pwR) {
     SetMotorLeft(pwL);
     SetMotorRight(pwR);
 }
-void SetMotorAll(char pwL, char pwR, char pwB) {
-    SetMotorLeft(pwL);
-    SetMotorRight(pwR);
-    SetMotorBack(pwB);
-}
-
 int MotorReset() {
     unsigned char Buf[4];
     int ret;
 
     Buf[0] = opOUTPUT_RESET;
-    Buf[1] = ChMotorL|ChMotorR|ChMotorB;
+    Buf[1] = ChMotorL|ChMotorR;
     
     ret = write(pwmfp,Buf,2);
     return ret;
@@ -224,7 +214,7 @@ void MotorInit() {
         printf("Cannot open dev/lms_pwm\n");
         exit(-1);
     }
-    ChUseMotors = ChMotorL|ChMotorR|ChMotorB;
+    ChUseMotors = ChMotorL|ChMotorR;
 }
 
 int MotorStart() {
@@ -327,7 +317,6 @@ void debug_gyro_sensor() {
 void debug_sensors() {
     char speedL = speed_base;
     char speedR = speed_base;
-    char speedB = speed_base;
     sleep(3);
     printf("linetrance program start\n");
     PrgStop();
@@ -341,6 +330,37 @@ void debug_sensors() {
         int gyro_v = GetGyroSensor();
         printf("sonic: %d, gyro: %d\n", sonic_v, gyro_v);
         usleep(100000);
+    }
+    MotorStop();
+    PrgStop();
+}
+
+void debug_speed() {
+    char speedL = 0;
+    char speedR = 0;
+    sleep(3);
+    printf("speed debug program start\n");
+    PrgStop();
+    PrgStart();
+    MotorInit();
+    MotorStart();
+    // 1msec * 100000 => 100sec
+    int i;
+    for (i = 0; i < 1000000; i++) {
+        int sv = GetSonicSensor();
+//        printf("<< %d\n", sv);
+        if (sv < stop_distance) {
+            SetMotorLR(0, 0);
+            usleep(10000);
+            continue;
+        }
+        if (speedL < 100) {
+            speedL += 10;
+            speedR += 10;
+        }
+        printf("speed: %d\n", speedL);
+        SetMotorLR(speedL, speedR);
+        usleep(1000000);
     }
     MotorStop();
     PrgStop();
@@ -391,7 +411,6 @@ float pid(char sencer_val, unsigned char side) {
 void linetrance() {
     char speedL = speed_base;
     char speedR = speed_base;
-    char speedB = speed_base;
     SetLed(LED_BLACK);
     sleep(1);
     SetLed(LED_RED);
@@ -404,7 +423,7 @@ void linetrance() {
     PrgStart();
     MotorInit();
     MotorStart();
-    SetMotorAll(speedL, speedR, speedB);
+    SetMotorLR(speedL, speedR);
     int generation = 0;
     int gene_c = 0;
     int i;
@@ -426,14 +445,13 @@ void linetrance() {
     // 1msec * 100000 => 100sec
     for (i = 0; i < 100000; i++) {
         unsigned char g = GetGyroSensor();
-        speedB = speed_base;
         // 壁ストップ処理
         int sv = GetSonicSensor();
         unsigned char brake = 0;
 //        printf("<< %d\n", sv);
         if (sv < stop_distance) {
 
-            SetMotorAll(0, 0, 0);
+            SetMotorLR(0, 0);
             usleep(10000);
             continue;
         } else if (sv < stop_distance * 2) {
@@ -452,7 +470,6 @@ void linetrance() {
 //            pid_kp_max = 4.0;
 //            pid_kd = 1.6;
         }
-        SetMotorBack(speedB);
         if (gene_c > 100) {
             generation++;
             gene_c = 0;
@@ -550,7 +567,7 @@ void linetrance() {
         if (mode == 7 && generation == 2) {
             sleep(20);
         }
-        SetMotorAll(speedL, speedR, speedB);
+        SetMotorLR(speedL, speedR);
         pre_col = col;
         usleep(10000);
     }
@@ -574,11 +591,11 @@ void maxwallstop() {
     int i;
     for (i = 0; i < 100000; i++) {
         if (GetColorSensorHead() > 1) {
-            SetMotorAll(0, 0, 0);
+            SetMotorLR(0, 0);
             usleep(10000);
             continue;
         }
-        SetMotorAll(100, 100, 100);
+        SetMotorLR(100, 100);
     }
     MotorStop();
     PrgStop();
@@ -596,7 +613,7 @@ void wallstop() {
     int i;
     for (i = 0; i < 100000; i++) {
         int v = GetSonicSensor();
-        SetMotorAll(100, 100, 100);
+        SetMotorLR(100, 100);
     }
     MotorStop();
     PrgStop();
@@ -638,21 +655,17 @@ int main(int argc, char *argv[]) {
     Init();
     ChgSensorMode(ChColorSensorL, MOD_COL_REFLECT);
     ChgSensorMode(ChColorSensorR, MOD_COL_REFLECT);
-//    ChgSensorMode(ChColorSensorH, MOD_COL_REFLECT);
     ChgSensorMode(ChSonicSensor, MOD_DIST_INC);
     ChgSensorMode(ChGyroSensor, MOD_GYRO_ANG);
 
     MotorReset();
 
     printf("ProgStart\n");
-    linetrance();
+
+//    linetrance();
 //    maxwallstop();
 //    wallstop();
-//    debug_color_sensor();
-//    debug_motor();
-//    debug_gyro_sensor();
-//    debug_sonic_sensor();
-//    debug_sensors();
+    debug_speed();
     printf("ProgStop\n");
 
     Fina();
