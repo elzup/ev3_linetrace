@@ -14,7 +14,7 @@
 #define BASE_COL_GRAY_UP 35
 #define BASE_COL_WHITE_UP 100
 
-int stop_distance = 60; // mm
+int stop_distance = 150; // mm
 unsigned char target_col = 30;
 float pid_kp_init = 1.3;
 float pid_kp_max = 4.0;
@@ -336,8 +336,8 @@ void debug_sensors() {
 }
 
 void debug_speed() {
-    char speedL = 0;
-    char speedR = 0;
+    char speedL = 30;
+    char speedR = 30;
     sleep(3);
     printf("speed debug program start\n");
     PrgStop();
@@ -354,13 +354,13 @@ void debug_speed() {
             usleep(10000);
             continue;
         }
-        if (speedL < 100) {
-            speedL += 10;
-            speedR += 10;
+        if (speedL < 100 && i % 10 == 0) {
+            speedL ++;
+            speedR ++; 
         }
         printf("speed: %d\n", speedL);
         SetMotorLR(speedL, speedR);
-        usleep(1000000);
+        usleep(10000);
     }
     MotorStop();
     PrgStop();
