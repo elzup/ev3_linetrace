@@ -11,16 +11,16 @@
 
 // config
 #define BASE_COL_BLACK_UP 10
-#define BASE_COL_GRAY_UP 35
-#define BASE_COL_WHITE_UP 100
+#define BASE_COL_GRAY_UP 20
+#define BASE_COL_WHITE_UP 50
 
 int stop_distance = 150; // mm
-unsigned char target_col = 30;
-float pid_kp_init = 1.3;
+unsigned char target_col = 35;
+float pid_kp_init = 5.0;
 float pid_kp_max = 4.0;
 float pid_kp;
-float pid_ki = 0.001;
-float pid_kd = 1.2;
+float pid_ki = 0.1;
+float pid_kd = 0.5;
 //#define pid_kp 1.85
 //#define pid_ki 0.0005
 //#define pid_kd 0.85
@@ -30,7 +30,7 @@ float delta_t = 1;
 unsigned char mode1_time = 6;
 
 char speed_base = 50;
-char speed_diff_init = 25;
+char speed_diff_init = 30;
 char speed_diff_diff = 0;
 // constantses
 // line color
@@ -87,9 +87,9 @@ unsigned char ChMotorB = CH_D;
 
 unsigned char ChColorSensorL = CH_3;
 unsigned char ChColorSensorR = CH_2;
-unsigned char ChColorSensorS = CH_1;
+unsigned char ChColorSensorS = CH_4;
 
-unsigned char ChSonicSensor = CH_4;
+unsigned char ChSonicSensor = CH_1;
 unsigned char ChGyroSensor = CH_1;
 
 float integral = 0;
@@ -326,7 +326,7 @@ void debug_sensors() {
     char speedL = speed_base;
     char speedR = speed_base;
     sleep(3);
-    printf("linetrance program start\n");
+    printf("debug sonsor program start\n");
     PrgStop();
     PrgStart();
     MotorInit();
@@ -421,6 +421,7 @@ float pid(char sencer_val, unsigned char side) {
 void linetrance() {
     char speedL = speed_base;
     char speedR = speed_base;
+    char speedB = speed_base;
     SetLed(LED_BLACK);
     sleep(1);
     SetLed(LED_RED);
@@ -433,12 +434,19 @@ void linetrance() {
     PrgStart();
     MotorInit();
     MotorStart();
-    SetMotorLR(speedL, speedR);
+    SetMotorAll(speedL, speedR, speedB);
+
+    speed_base = 60;
+    speed_diff_init = 30;
+    pid_kp_init = 2.5;
+    pid_kp_max = 3.5;
+    pid_kd = 0.8;
+
     int generation = 0;
     int gene_c = 0;
     int i;
     // mode 制御
-    unsigned char mode = 0;
+    unsigned char mode = -1;
     // mode 0 Start 直線部分 --
     if (mode == 0) {
         printf("mode 0!!\n");
@@ -455,31 +463,7 @@ void linetrance() {
     // 1msec * 100000 => 100sec
     for (i = 0; i < 100000; i++) {
         unsigned char g = GetGyroSensor();
-        // 壁ストップ処理
-        int sv = GetSonicSensor();
-        unsigned char brake = 0;
-//        printf("<< %d\n", sv);
-        if (sv < stop_distance) {
-
-            SetMotorLR(0, 0);
-            usleep(10000);
-            continue;
-        } else if (sv < stop_distance * 2) {
-            brake = 2;
-        } else if (sv < stop_distance * 4) {
-            printf("mode sp!!\n");
-            printf("g:: %d\n", g);
-            speed_base = 60;
-            speed_diff_init = 30;
-            pid_kp_init = 2.5;
-            pid_kp_max = 3.5;
-            pid_kd = 0.8;
-//            speed_base = 50;
-//            speed_diff_init = 25;
-//            pid_kp_init = 1.3;
-//            pid_kp_max = 4.0;
-//            pid_kd = 1.6;
-        }
+        // 壁ストップ処理 - deleted
         if (gene_c > 100) {
             generation++;
             gene_c = 0;
@@ -564,10 +548,6 @@ void linetrance() {
 //        printf("<%f>\n", pid_vr);
         speedL = speed_base + (pid_vl * speed_diff / 100);
         speedR = speed_base + (pid_vr * speed_diff / 100);
-        if (brake != 0) {
-            speedL /= brake;
-            speedR /= brake;
-        }
         if (col != COLP_WW && generation > 40) {
             generation = 0;
             mode = 7;
@@ -577,7 +557,7 @@ void linetrance() {
         if (mode == 7 && generation == 2) {
             sleep(20);
         }
-        SetMotorLR(speedL, speedR);
+        SetMotorAll(speedL, speedR, speedB);
         pre_col = col;
         usleep(10000);
     }
@@ -633,50 +613,60 @@ void wallstop() {
 // main method
 int main(int argc, char *argv[]) {
     // get args pid values
+    int argmode = 0;
     if (argc >= 2) {
-        mode1_time = atoi(argv[1]);
+        argmode = atoi(argv[1]);
     }
-//    if (argc >= 3) {
-//        pid_ki = atof(argv[2]);
-//    }
-//    if (argc >= 4) {
-//        pid_kd = atof(argv[3]);
-//    }
-//    if (argc >= 5) {
-//        delta_t = atof(argv[4]);
-//    }
-//    // get args pid values
-//    if (argc >= 6) {
-//        speed_base = atoi(argv[5]);
-//    }
-//    if (argc >= 7) {
-//        speed_diff_init = atoi(argv[6]);
-//    }
-//    if (argc >= 8) {
-//        speed_diff_diff = atoi(argv[7]);
-//    }
-//    if (argc >= 9) {
-//        pid_kp_max = atoi(argv[8]);
-//    }
-//    if (argc >= 10) {
-//        target_col = atoi(argv[9]);
-//    }
+    if (argmode == 1) {
+        if (argc >= 3) {
+            mode1_time = atoi(argv[2]);
+        }
+    } else if (argmode == 2) {
+        if (argc >= 3) {
+            pid_kp_init = atof(argv[2]);
+        }
+        if (argc >= 4) {
+            pid_ki = atof(argv[3]);
+        }
+        if (argc >= 5) {
+            pid_kd = atof(argv[4]);
+        }
+        if (argc >= 6) {
+            delta_t = atof(argv[5]);
+        }
+        // get args pid values
+        if (argc >= 7) {
+            speed_base = atoi(argv[6]);
+        }
+        if (argc >= 8) {
+            speed_diff_init = atoi(argv[7]);
+        }
+        if (argc >= 9) {
+            speed_diff_diff = atoi(argv[8]);
+        }
+        if (argc >= 10) {
+            pid_kp_max = atoi(argv[9]);
+        }
+        if (argc >= 11) {
+            target_col = atoi(argv[10]);
+        }
+    }
     pid_kp = pid_kp_init;
     Init();
     ChgSensorMode(ChColorSensorL, MOD_COL_REFLECT);
     ChgSensorMode(ChColorSensorR, MOD_COL_REFLECT);
     ChgSensorMode(ChColorSensorS, MOD_COL_REFLECT);
-    ChgSensorMode(ChSonicSensor, MOD_DIST_INC);
+//    ChgSensorMode(ChSonicSensor, MOD_DIST_INC);
     ChgSensorMode(ChGyroSensor, MOD_GYRO_ANG);
 
     MotorReset();
 
     printf("ProgStart\n");
 
-//    linetrance();
+    linetrance();
 //    maxwallstop();
 //    wallstop();
-    debug_speed();
+//    debug_speed();
     printf("ProgStop\n");
 
     Fina();
