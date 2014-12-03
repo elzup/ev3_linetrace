@@ -83,10 +83,11 @@ char speed_diff_diff = 0;
 
 unsigned char ChMotorL = CH_C;
 unsigned char ChMotorR = CH_B;
+unsigned char ChMotorB = CH_D;
 
 unsigned char ChColorSensorL = CH_3;
 unsigned char ChColorSensorR = CH_2;
-unsigned char ChColorSensorH = CH_1;
+unsigned char ChColorSensorS = CH_1;
 
 unsigned char ChSonicSensor = CH_4;
 unsigned char ChGyroSensor = CH_1;
@@ -115,8 +116,8 @@ unsigned char GetColorSensorLeft() {
 unsigned char GetColorSensorRight() {
     return GetSonor(ChColorSensorR);
 }
-unsigned char GetColorSensorHead() {
-    return GetSonor(ChColorSensorH);
+unsigned char GetColorSensorSuper() {
+    return GetSonor(ChColorSensorS);
 }
 int GetSonicSensor() {
     unsigned char h = (unsigned char) pUart->Raw[ChSonicSensor][pUart->Actual[ChSonicSensor]][1];
@@ -192,16 +193,23 @@ void SetMotorLeft(char pw) {
 void SetMotorRight(char pw) {
     MotorSet(ChMotorR, (unsigned char) pw);
 }
+void SetMotorBack(char pw) {
+    MotorSet(ChMotorB, (unsigned char) pw);
+}
 void SetMotorLR(char pwL, char pwR) {
     SetMotorLeft(pwL);
     SetMotorRight(pwR);
+}
+void SetMotorAll(char pwL, char pwR, char pwB) {
+    SetMotorLR(pwL, pwR);
+    SetMotorBack(pwB);
 }
 int MotorReset() {
     unsigned char Buf[4];
     int ret;
 
     Buf[0] = opOUTPUT_RESET;
-    Buf[1] = ChMotorL|ChMotorR;
+    Buf[1] = ChMotorL|ChMotorR|ChMotorB;
     
     ret = write(pwmfp,Buf,2);
     return ret;
@@ -214,7 +222,7 @@ void MotorInit() {
         printf("Cannot open dev/lms_pwm\n");
         exit(-1);
     }
-    ChUseMotors = ChMotorL|ChMotorR;
+    ChUseMotors = ChMotorL|ChMotorR|ChMotorB;
 }
 
 int MotorStart() {
@@ -338,6 +346,7 @@ void debug_sensors() {
 void debug_speed() {
     char speedL = 30;
     char speedR = 30;
+    char speedB = 30;
     sleep(3);
     printf("speed debug program start\n");
     PrgStop();
@@ -357,9 +366,10 @@ void debug_speed() {
         if (speedL < 100 && i % 10 == 0) {
             speedL ++;
             speedR ++; 
+            speedB ++; 
         }
         printf("speed: %d\n", speedL);
-        SetMotorLR(speedL, speedR);
+        SetMotorAll(speedL, speedR, speedB);
         usleep(10000);
     }
     MotorStop();
@@ -590,7 +600,7 @@ void maxwallstop() {
     MotorStart();
     int i;
     for (i = 0; i < 100000; i++) {
-        if (GetColorSensorHead() > 1) {
+        if (GetColorSensorSuper() > 1) {
             SetMotorLR(0, 0);
             usleep(10000);
             continue;
@@ -655,6 +665,7 @@ int main(int argc, char *argv[]) {
     Init();
     ChgSensorMode(ChColorSensorL, MOD_COL_REFLECT);
     ChgSensorMode(ChColorSensorR, MOD_COL_REFLECT);
+    ChgSensorMode(ChColorSensorS, MOD_COL_REFLECT);
     ChgSensorMode(ChSonicSensor, MOD_DIST_INC);
     ChgSensorMode(ChGyroSensor, MOD_GYRO_ANG);
 
