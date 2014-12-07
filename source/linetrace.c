@@ -14,12 +14,12 @@
 #define BASE_COL_GRAY_UP 20
 #define BASE_COL_WHITE_UP 50
 
-unsigned char target_col = 35;
+unsigned char target_col = 60;
 float pid_kp_init = 5.0;
-float pid_kp_max = 4.0;
+float pid_kp_max = 20.0;
 float pid_kp;
-float pid_ki = 0.1;
-float pid_kd = 0.5;
+float pid_ki = 0.001;
+float pid_kd = 0.8;
 //#define pid_kp 1.85
 //#define pid_ki 0.0005
 //#define pid_kd 0.85
@@ -32,9 +32,9 @@ int straight_time = 700000;
 
 unsigned char mode1_time = 6;
 
-char speed_base = 50;
-char speed_diff_init = 30;
-char speed_diff_diff = 0;
+char speed_base = 40;
+char speed_diff_init = 20;
+char speed_diff_diff = 10;
 
 int stop_distance = 150; // mm
 
@@ -358,8 +358,8 @@ void debug_sensors() {
     PrgStop();
 }
 void debug_speed() {
-    char speedL = 30;
-    char speedR = 30;
+    char speedL = 100;
+    char speedR = 100;
     sleep(3);
     printf("speed debug program start\n");
     PrgStop();
@@ -475,11 +475,11 @@ void linetrance() {
     MotorStart();
     SetMotorLR(speedL, speedR);
 
-    speed_base = 60;
-    speed_diff_init = 30;
-    pid_kp_init = 2.5;
-    pid_kp_max = 3.5;
-    pid_kd = 0.8;
+//    speed_base = 60;
+//    speed_diff_init = 30;
+//    pid_kp_init = 2.5;
+//    pid_kp_max = 3.5;
+//    pid_kd = 0.8;
 
     int generation = 0;
     int gene_c = 0;
@@ -641,25 +641,16 @@ void linetrance() {
 //        printf("(col:%d == WW: %d) (log:%d == WB: %d)\n", col, COLP_WW, log, COLP_WB);
         if (col == COLP_WW && log == COLP_WB) {
 //            printf("left out!!\n");
-            val_r = 3;
+            val_r = 0;
         } else if (col == COLP_WW && log == COLP_BW) {
 //            printf("right out!!\n");
-            val_l = 3;
+            val_l = 0;
         }
         float pid_vl = pid(val_l, LEFT);
         float pid_vr = pid(val_r, RIGHT);
         speedL = speed_base + (pid_vl * speed_diff / 100);
         speedR = speed_base + (pid_vr * speed_diff / 100);
-//        printf("<%f>\n", pid_vr);
-        if (col != COLP_WW && generation > 40) {
-            generation = 0;
-            mode = 7;
-            speedL = 50;
-            speedR = 25;
-        }
-        if (mode == 7 && generation == 2) {
-            sleep(20);
-        }
+        printf("<%f : %f>\n", speedL, speedR);
         SetMotorLR(speedL, speedR);
         pre_col = col;
         usleep(10000);
