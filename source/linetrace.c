@@ -646,9 +646,9 @@ void linetrance() {
 //            printf("right out!!\n");
             val_l = 0;
         }
-        float pid_vl = pid(val_l, LEFT);
+//        float pid_vl = pid(val_l, LEFT);
         float pid_vr = pid(val_r, RIGHT);
-        speedL = speed_base + (pid_vl * speed_diff / 100);
+        speedL = speed_base - (pid_vr * speed_diff / 100);
         speedR = speed_base + (pid_vr * speed_diff / 100);
         printf("<%f : %f>\n", speedL, speedR);
         SetMotorLR(speedL, speedR);
