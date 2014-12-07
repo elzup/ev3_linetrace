@@ -83,7 +83,8 @@ char speed_diff_diff = 0;
 
 unsigned char ChMotorL = CH_C;
 unsigned char ChMotorR = CH_B;
-unsigned char ChMotorB = CH_D;
+unsigned char ChMotorL2 = CH_D;
+unsigned char ChMotorR2 = CH_A;
 
 unsigned char ChColorSensorL = CH_3;
 unsigned char ChColorSensorR = CH_2;
@@ -189,27 +190,22 @@ int MotorSet(unsigned char ch, unsigned char power) {
 }
 void SetMotorLeft(char pw) {
     MotorSet(ChMotorL, (unsigned char) pw);
+    MotorSet(ChMotorL2, (unsigned char) -pw);
 }
 void SetMotorRight(char pw) {
     MotorSet(ChMotorR, (unsigned char) pw);
-}
-void SetMotorBack(char pw) {
-    MotorSet(ChMotorB, (unsigned char) pw);
+    MotorSet(ChMotorR2, (unsigned char) -pw);
 }
 void SetMotorLR(char pwL, char pwR) {
     SetMotorLeft(pwL);
     SetMotorRight(pwR);
-}
-void SetMotorAll(char pwL, char pwR, char pwB) {
-    SetMotorLR(pwL, pwR);
-    SetMotorBack(pwB);
 }
 int MotorReset() {
     unsigned char Buf[4];
     int ret;
 
     Buf[0] = opOUTPUT_RESET;
-    Buf[1] = ChMotorL|ChMotorR|ChMotorB;
+    Buf[1] = ChMotorL|ChMotorR|ChMotorL2|ChMotorR2;
     
     ret = write(pwmfp,Buf,2);
     return ret;
@@ -222,7 +218,7 @@ void MotorInit() {
         printf("Cannot open dev/lms_pwm\n");
         exit(-1);
     }
-    ChUseMotors = ChMotorL|ChMotorR|ChMotorB;
+    ChUseMotors = ChMotorL|ChMotorR|ChMotorL2|ChMotorR2;
 }
 
 int MotorStart() {
@@ -342,11 +338,9 @@ void debug_sensors() {
     MotorStop();
     PrgStop();
 }
-
 void debug_speed() {
     char speedL = 30;
     char speedR = 30;
-    char speedB = 30;
     sleep(3);
     printf("speed debug program start\n");
     PrgStop();
@@ -360,7 +354,30 @@ void debug_speed() {
             speedL ++;
         }
         printf("speed: %d\n", speedL);
-        SetMotorAll(speedL, speedR, speedB);
+        SetMotorLR(speedL, speedR);
+        usleep(10000);
+    }
+    MotorStop();
+    PrgStop();
+}
+void debug_spin() {
+    char speedL = 30;
+    char speedR = -30;
+    sleep(3);
+    printf("speed debug program start\n");
+    PrgStop();
+    PrgStart();
+    MotorInit();
+    MotorStart();
+    // 1msec * 100000 => 100sec
+    int i;
+    for (i = 0; i < 1000000; i++) {
+        if (speedL < 100 && i % 10 == 0) {
+            speedL ++;
+            speedR --;
+        }
+        printf("speed: %d\n", speedL);
+        SetMotorLR(speedL, speedR);
         usleep(10000);
     }
     MotorStop();
@@ -412,7 +429,6 @@ float pid(char sencer_val, unsigned char side) {
 void linetrance() {
     char speedL = speed_base;
     char speedR = speed_base;
-    char speedB = speed_base;
     SetLed(LED_BLACK);
     sleep(1);
     SetLed(LED_RED);
@@ -425,7 +441,7 @@ void linetrance() {
     PrgStart();
     MotorInit();
     MotorStart();
-    SetMotorAll(speedL, speedR, speedB);
+    SetMotorLR(speedL, speedR);
 
     speed_base = 60;
     speed_diff_init = 30;
@@ -554,7 +570,7 @@ void linetrance() {
         if (mode == 7 && generation == 2) {
             sleep(20);
         }
-        SetMotorAll(speedL, speedR, speedB);
+        SetMotorLR(speedL, speedR);
         pre_col = col;
         usleep(10000);
     }
@@ -663,7 +679,8 @@ int main(int argc, char *argv[]) {
 //    linetrance();
 //    maxwallstop();
 //    wallstop();
-    debug_speed();
+//    debug_speed();
+    debug_spin();
     printf("ProgStop\n");
 
     Fina();
