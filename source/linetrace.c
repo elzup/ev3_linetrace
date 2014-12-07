@@ -323,8 +323,8 @@ void debug_gyro_sensor() {
     printf("DebugGyroSensor end\n");
 }
 void debug_sensors() {
-    char speedL = speed_base;
-    char speedR = speed_base;
+//    char speedL = speed_base;
+//    char speedR = speed_base;
     sleep(3);
     printf("debug sonsor program start\n");
     PrgStop();
@@ -356,17 +356,8 @@ void debug_speed() {
     // 1msec * 100000 => 100sec
     int i;
     for (i = 0; i < 1000000; i++) {
-        int sv = GetSonicSensor();
-//        printf("<< %d\n", sv);
-        if (sv < stop_distance) {
-            SetMotorLR(0, 0);
-            usleep(10000);
-            continue;
-        }
         if (speedL < 100 && i % 10 == 0) {
             speedL ++;
-            speedR ++; 
-            speedB ++; 
         }
         printf("speed: %d\n", speedL);
         SetMotorAll(speedL, speedR, speedB);
@@ -472,9 +463,9 @@ void linetrance() {
         gene_c++;
         char val_r = GetColorSensorRight();
         char val_l = GetColorSensorLeft();
-        unsigned char val_r_c = CheckColor(val_r);
-        unsigned char val_r_b = CheckColorBit(val_r);
-        unsigned char val_l_b = CheckColorBit(val_l);
+//        unsigned char val_r_c = CheckColor(val_r);
+//        unsigned char val_r_b = CheckColorBit(val_r);
+//        unsigned char val_l_b = CheckColorBit(val_l);
         unsigned char col = (CheckColorBit(val_l) << COL_LENG) | CheckColorBit(val_r);
         char speed_diff = speed_diff_init;
         if (col != pre_col) {
@@ -548,6 +539,12 @@ void linetrance() {
 //        printf("<%f>\n", pid_vr);
         speedL = speed_base + (pid_vl * speed_diff / 100);
         speedR = speed_base + (pid_vr * speed_diff / 100);
+        if (pid_vl < 0) {
+            speedL += speed_base + (pid_vl * speed_diff / 100);
+        }
+        if (pid_vr < 0) {
+            speedR += speed_base + (pid_vr * speed_diff / 100);
+        }
         if (col != COLP_WW && generation > 40) {
             generation = 0;
             mode = 7;
@@ -593,7 +590,7 @@ void maxwallstop() {
 
 //wallstop
 void wallstop() {
-    char sp = 0;
+//    char sp = 0;
     sleep(3);
     printf("wallstop program start\n");
     PrgStop();
@@ -602,7 +599,7 @@ void wallstop() {
     MotorStart();
     int i;
     for (i = 0; i < 100000; i++) {
-        int v = GetSonicSensor();
+//        int v = GetSonicSensor();
         SetMotorLR(100, 100);
     }
     MotorStop();
@@ -663,10 +660,10 @@ int main(int argc, char *argv[]) {
 
     printf("ProgStart\n");
 
-    linetrance();
+//    linetrance();
 //    maxwallstop();
 //    wallstop();
-//    debug_speed();
+    debug_speed();
     printf("ProgStop\n");
 
     Fina();
