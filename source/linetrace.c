@@ -14,7 +14,6 @@
 #define BASE_COL_GRAY_UP 20
 #define BASE_COL_WHITE_UP 50
 
-int stop_distance = 150; // mm
 unsigned char target_col = 35;
 float pid_kp_init = 5.0;
 float pid_kp_max = 4.0;
@@ -27,11 +26,25 @@ float pid_kd = 0.5;
 //#define DELTA_T 10
 float delta_t = 1;
 
+int slow_speed = 20;
+int spin_time = 820000;
+int straight_time = 700000;
+
 unsigned char mode1_time = 6;
 
 char speed_base = 50;
 char speed_diff_init = 30;
 char speed_diff_diff = 0;
+
+int stop_distance = 150; // mm
+
+char park_num = 3;
+char park_count = 0;
+char col_park_flag = 0;
+
+int finale_timer = 0;
+int finale_limit = 125;
+
 // constantses
 // line color
 #define COL_BLACK 0x00
@@ -79,6 +92,13 @@ char speed_diff_diff = 0;
 #define LED_RED_PULSE 8+'0'
 #define LED_ORANGE_PULSE 9+'0'
 
+// MODE
+#define MODE_NONE -1
+#define MODE_GOAL 8
+#define MODE_PARKSEARCH 9
+#define MODE_PARKING 10
+#define MODE_FINALE 11
+
 // config port
 
 unsigned char ChMotorL = CH_C;
@@ -90,8 +110,8 @@ unsigned char ChColorSensorL = CH_3;
 unsigned char ChColorSensorR = CH_2;
 unsigned char ChColorSensorS = CH_4;
 
-unsigned char ChSonicSensor = CH_1;
 unsigned char ChGyroSensor = CH_1;
+unsigned char ChSonicSensor = CH_1;
 
 float integral = 0;
 
@@ -220,7 +240,6 @@ void MotorInit() {
     }
     ChUseMotors = ChMotorL|ChMotorR|ChMotorL2|ChMotorR2;
 }
-
 int MotorStart() {
     unsigned char Buf[4];
     int ret;
@@ -425,6 +444,19 @@ float pid(char sencer_val, unsigned char side) {
     return res;
 }
 
+void spin90() {
+    SetMotorLR(-slow_speed, slow_speed);
+    usleep(spin_time);
+    SetMotorLR(0, 0);
+}
+
+void straight() {
+    SetMotorLR(slow_speed, slow_speed);
+    usleep(straight_time);
+    SetMotorLR(0, 0);
+}
+
+
 // main funcs
 void linetrance() {
     char speedL = speed_base;
@@ -454,6 +486,10 @@ void linetrance() {
     int i;
     // mode 制御
     unsigned char mode = -1;
+
+    unsigned char log = 0;
+    unsigned char pre_col = 0;
+
     // mode 0 Start 直線部分 --
     if (mode == 0) {
         printf("mode 0!!\n");
@@ -464,19 +500,82 @@ void linetrance() {
         pid_kd = 2.0;
         // --
     }
+    // TODO: debug
+//    mode = MODE_GOAL;
 
-    unsigned char log = 0;
-    unsigned char pre_col = 0;
     // 1msec * 100000 => 100sec
     for (i = 0; i < 100000; i++) {
-        unsigned char g = GetGyroSensor();
+
         // 壁ストップ処理 - deleted
+        int sv = GetSonicSensor();
+        unsigned char brake = 0;
+//        printf("<< %d\n", sv);
+        if (sv < stop_distance) {
+            SetMotorLR(0, 0);
+            usleep(10000);
+            continue;
+        } else if (sv < stop_distance * 2) {
+            brake = 2;
+        } else if (sv < stop_distance * 4) {
+            printf("mode sp!!\n");
+//            speed_base = 60;
+//            speed_diff_init = 30;
+//            pid_kp_init = 2.5;
+//            pid_kp_max = 3.5;
+//            pid_kd = 0.8;
+//            speed_base = 50;
+//            speed_diff_init = 25;
+//            pid_kp_init = 1.3;
+//            pid_kp_max = 4.0;
+//            pid_kd = 1.6;
+        }
+
         if (gene_c > 100) {
             generation++;
             gene_c = 0;
-            printf("g: %d,gyro[%d]\n", generation, g);
         }
         gene_c++;
+
+        if (mode == MODE_GOAL) {
+            speed_base = slow_speed;
+            speed_diff_init = slow_speed / 2;
+            pid_kp_init = 1.6;
+            pid_kp_max = 2.0;
+            pid_kd = 1.5;
+            park_count = 0;
+            mode = MODE_PARKSEARCH;
+        }
+
+        if (mode == MODE_PARKSEARCH) {
+            char col_park_flag_new = CheckColorBit(GetColorSensorSuper());
+            if (col_park_flag == COL_BLACK && col_park_flag_new == COL_WHITE) {
+                park_count++;
+                if (park_count == park_num) {
+                    mode = MODE_PARKING;
+                }
+            }
+            printf("%d - %d / %d\n", col_park_flag_new, park_count, park_num);
+            col_park_flag = col_park_flag_new;
+        }
+
+        if (mode == MODE_PARKING) {
+            // パーキング処理 parking action
+            spin90();
+            straight();
+            pid_kp_init = 2.0;
+            pid_kp_max = 4.0;
+            pid_kd = 0.5;
+            mode = MODE_FINALE;
+        }
+
+        if (mode == MODE_FINALE) {
+            finale_timer++;
+            if (finale_timer == finale_limit) {
+                SetMotorLR(0, 0);
+                return;
+            }
+        }
+
         char val_r = GetColorSensorRight();
         char val_l = GetColorSensorLeft();
 //        unsigned char val_r_c = CheckColor(val_r);
@@ -504,7 +603,6 @@ void linetrance() {
             if (mode == 0 && col == COLP_WW && generation > mode1_time) {
                 // mode 1 first curve 第一カーブ --
                 printf("mode 1!!\n");
-                printf("g:: %d\n", g);
                 mode = -1;
                 speed_base = 60;
                 speed_diff_init = 30;
@@ -514,10 +612,9 @@ void linetrance() {
 
                 // --
             }
-            if (mode == 2 && col == COLP_WW && 160 <= g && g < 224) {
+            if (mode == 2 && col == COLP_WW) {
                 // mode 3 second curve 第二カーブ --
                 printf("mode 3!!\n");
-                printf("g:: %d\n", g);
                 mode = 3;
                 speed_base = 70;
                 speed_diff_init = 35;
@@ -527,10 +624,9 @@ void linetrance() {
                 // --
             }
         }
-        if (mode == 1 && col != COLP_WW && 160 <= g && g < 224) {
+        if (mode == 1 && col != COLP_WW) {
             // mode 2 second strait 直線部分 --
             printf("mode 2!!\n");
-            printf("g:: %d\n", g);
             mode = 2;
             speed_base = 80;
             speed_diff_init = 20;
@@ -552,15 +648,9 @@ void linetrance() {
         }
         float pid_vl = pid(val_l, LEFT);
         float pid_vr = pid(val_r, RIGHT);
-//        printf("<%f>\n", pid_vr);
         speedL = speed_base + (pid_vl * speed_diff / 100);
         speedR = speed_base + (pid_vr * speed_diff / 100);
-        if (pid_vl < 0) {
-            speedL += speed_base + (pid_vl * speed_diff / 100);
-        }
-        if (pid_vr < 0) {
-            speedR += speed_base + (pid_vr * speed_diff / 100);
-        }
+//        printf("<%f>\n", pid_vr);
         if (col != COLP_WW && generation > 40) {
             generation = 0;
             mode = 7;
@@ -663,24 +753,34 @@ int main(int argc, char *argv[]) {
         if (argc >= 11) {
             target_col = atoi(argv[10]);
         }
+    } else if (argmode == 3) {
+        if (argc >= 3) {
+            slow_speed = atoi(argv[2]);
+        }
+        if (argc >= 4) {
+            spin_time = atoi(argv[3]);
+        }
+        if (argc >= 5) {
+            straight_time = atoi(argv[4]);
+        }
     }
     pid_kp = pid_kp_init;
     Init();
     ChgSensorMode(ChColorSensorL, MOD_COL_REFLECT);
     ChgSensorMode(ChColorSensorR, MOD_COL_REFLECT);
     ChgSensorMode(ChColorSensorS, MOD_COL_REFLECT);
-//    ChgSensorMode(ChSonicSensor, MOD_DIST_INC);
-    ChgSensorMode(ChGyroSensor, MOD_GYRO_ANG);
+    ChgSensorMode(ChSonicSensor, MOD_DIST_INC);
+//    ChgSensorMode(ChGyroSensor, MOD_GYRO_ANG);
 
     MotorReset();
 
     printf("ProgStart\n");
 
-//    linetrance();
+    linetrance();
 //    maxwallstop();
 //    wallstop();
 //    debug_speed();
-    debug_spin();
+//    debug_spin();
     printf("ProgStop\n");
 
     Fina();
