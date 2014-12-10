@@ -32,8 +32,20 @@ int slow_speed = 20;
 int spin_time = 820000;
 int straight_time = 700000;
 
-unsigned char mode1_time = 6;
-unsigned char mode_end_time = 35;
+unsigned char mode_c1_time = 60;
+unsigned char mode_s2_time = 60;
+unsigned char mode_c2_time = 60;
+unsigned char mode_s3_time = 60;
+unsigned char mode_sc_time = 60;
+unsigned char mode_c3_time = 60;
+unsigned char mode_s4_time = 60;
+unsigned char mode_c4_time = 60;
+unsigned char mode_s5_time = 60;
+unsigned char mode_c5_time = 60;
+unsigned char mode_s6_time = 60;
+unsigned char mode_c6_time = 60;
+unsigned char mode_s7_time = 60;
+unsigned char mode_end_time = 350;
 
 char speed_base = 40;
 char speed_diff_init = 20;
@@ -524,11 +536,12 @@ void linetrance() {
 //    pid_kd = 0.8;
 
     int generation = 0;
+    int generation_in = 0;
     int gene_c = 0;
     int i;
     // mode 制御
     unsigned char mode = -1;
-//    mode = MODE_START;
+    mode = MODE_START;
 
     unsigned char log = 0;
     unsigned char pre_col = 0;
@@ -558,7 +571,6 @@ void linetrance() {
         } else if (sv < stop_distance * 2) {
             brake = 2;
         } else if (sv < stop_distance * 4) {
-            printf("mode sp!!\n");
 //            speed_base = 60;
 //            speed_diff_init = 30;
 //            pid_kp_init = 2.5;
@@ -571,15 +583,17 @@ void linetrance() {
 //            pid_kd = 1.6;
         }
 
-        if (gene_c > 100) {
+        gene_c++;
+        if (gene_c == 10) {
             generation++;
+            generation_in++;
+            printf("<<<g: %4d (%d)\n", generation_in, generation);
             gene_c = 0;
         }
-        gene_c++;
 
-        if (generation == mode_end_time) {
-            mode = MODE_GOAL;
-        }
+//        if (generation == mode_end_time) {
+//            mode = MODE_GOAL;
+//        }
 
         if (mode == MODE_GOAL) {
             speed_base = slow_speed;
@@ -644,36 +658,97 @@ void linetrance() {
                 speed_diff = speed_diff_init;
             }
 
-            if (mode == MODE_STRAIGHT1 && col == COLP_WW && generation > mode1_time) {
-                // mode 1 first curve 第一カーブ --
-                printf("mode 1!!\n");
-                mode = MODE_CURVE1;
-                setPidCurve();
-                // --
-            }
-            if (mode == 3 && col == COLP_WW) {
-                // mode 3 second curve 第二カーブ --
-                printf("mode 3!!\n");
-                mode = 4;
-                speed_base = 70;
-                speed_diff_init = 35;
-                pid_kp_init = 2.5;
-                pid_kp_max = 3.5;
-                pid_kd = 0.8;
-                // --
-            }
         }
-        if (mode == 2 && col != COLP_WW) {
-            // mode 2 second strait 直線部分 --
-            printf("mode 2!!\n");
-            mode = 3;
-            speed_base = 80;
-            speed_diff_init = 20;
-            pid_kp_init = 1.3;
-            pid_kp_max = 2.0;
-            pid_kd = 3.0;
+
+        if (mode == MODE_STRAIGHT1 && generation > mode_c1_time) {
+            // mode curve1 第一カーブ --
+            printf("mode curve1 !!\n");
+            mode = MODE_CURVE1;
+            generation_in = 0;
+            setPidCurve();
             // --
         }
+        if (mode == MODE_CURVE1 && generation_in == mode_s2_time) {
+            // mode straight2 直線部分 --
+            printf("mode straight2 !!\n");
+            mode = MODE_STRAIGHT2;
+            generation_in = 0;
+            setPidStraight();
+            // --
+        }
+        if (mode == MODE_STRAIGHT2 && generation_in == mode_c2_time) {
+            // mode curve2 第二カーブ --
+            printf("mode curve2 !!\n");
+            mode = MODE_CURVE2;
+            generation_in = 0;
+            setPidCurve();
+            // --
+        }
+        if (mode == MODE_CURVE2 && generation_in == mode_s3_time) {
+            // mode straight3 直線部分 --
+            printf("mode straight3 !!\n");
+            mode = MODE_STRAIGHT3;
+            generation_in = 0;
+            setPidStraight();
+            // --
+        }
+        if (mode == MODE_STRAIGHT3 && generation_in == mode_sc_time) {
+            // mode super curve 急カーブ --
+            printf("mode s curve !!\n");
+            mode = MODE_SCURVE;
+            generation_in = 0;
+            setPidSCurve();
+            // --
+        }
+        if (mode == MODE_SCURVE && generation_in == mode_c3_time) {
+            // mode curve3 第三カーブ --
+            printf("mode curve3 !!\n");
+            mode = MODE_CURVE3;
+            generation_in = 0;
+            setPidCurve();
+            // --
+        }
+        if (mode == MODE_CURVE3 && generation_in == mode_s4_time) {
+            // mode straight4 直線部分 --
+            printf("mode straight4 !!\n");
+            mode = MODE_STRAIGHT4;
+            generation_in = 0;
+            setPidStraight();
+            // --
+        }
+        if (mode == MODE_STRAIGHT4 && generation_in == mode_c4_time) {
+            // mode curve4 第二カーブ --
+            printf("mode curve4 !!\n");
+            mode = MODE_CURVE4;
+            generation_in = 0;
+            setPidCurve();
+            // --
+        }
+        if (mode == MODE_CURVE4 && generation_in == mode_s5_time) {
+            // mode straight5 直線部分 --
+            printf("mode straight5 !!\n");
+            mode = MODE_STRAIGHT5;
+            generation_in = 0;
+            setPidStraight();
+            // --
+        }
+        if (mode == MODE_STRAIGHT5 && generation_in == mode_c5_time) {
+            // mode curve5 第二カーブ --
+            printf("mode curve5 !!\n");
+            mode = MODE_CURVE5;
+            generation_in = 0;
+            setPidCurve();
+            // --
+        }
+        if (mode == MODE_CURVE5 && generation_in == mode_s6_time) {
+            // mode straight6 直線部分 --
+            printf("mode straight6 !!\n");
+            mode = MODE_STRAIGHT6;
+            generation_in = 0;
+            setPidStraight();
+            // --
+        }
+
 //        if (col == COLP_BW || col == COLP_BB) {
 //            val_r = 5;
 //        }
@@ -752,8 +827,39 @@ int main(int argc, char *argv[]) {
     }
     if (argmode == 1) {
         if (argc >= 3) {
-            mode1_time = atoi(argv[2]);
+            mode_c1_time = atoi(argv[2]);
         }
+        if (argc >= 4) {
+            mode_s2_time = atoi(argv[3]);
+        }
+        if (argc >= 5) {
+            mode_c2_time = atoi(argv[4]);
+        }
+        if (argc >= 6) {
+            mode_s3_time = atoi(argv[5]);
+        }
+        if (argc >= 7) {
+            mode_sc_time = atoi(argv[6]);
+        }
+        if (argc >= 8) {
+            mode_c3_time = atoi(argv[7]);
+        }
+        if (argc >= 9) {
+            mode_s4_time = atoi(argv[8]);
+        }
+        if (argc >= 10) {
+            mode_c5_time = atoi(argv[9]);
+        }
+        if (argc >= 11) {
+            mode_s6_time = atoi(argv[10]);
+        }
+        if (argc >= 12) {
+            mode_c6_time = atoi(argv[11]);
+        }
+        if (argc >= 13) {
+            mode_s7_time = atoi(argv[12]);
+        }
+
     } else if (argmode == 2) {
         if (argc >= 3) {
             pid_kp_init = atof(argv[2]);
