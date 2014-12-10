@@ -97,12 +97,25 @@ int finale_limit = 125;
 
 // MODE
 #define MODE_NONE -1
-#define MODE_START 1 
-#define MODE_STRAIGHT 2 
-#define MODE_GOAL 8
-#define MODE_PARKSEARCH 9
-#define MODE_PARKING 10
-#define MODE_FINALE 11
+#define MODE_START 1
+#define MODE_STRAIGHT1 2
+#define MODE_CURVE1 3
+#define MODE_STRAIGHT2 4
+#define MODE_CURVE2 5
+#define MODE_SCURVE 6
+#define MODE_CURVE3 7
+#define MODE_STRAIGHT3 8
+#define MODE_CURVE4 9
+#define MODE_STRAIGHT4 10
+#define MODE_CURVE5 11
+#define MODE_STRAIGHT5 12
+#define MODE_CURVE6 13
+#define MODE_STRAIGHT6 14
+
+#define MODE_GOAL 15
+#define MODE_PARKSEARCH 16
+#define MODE_PARKING 17
+#define MODE_FINALE 18
 
 // config port
 
@@ -376,6 +389,7 @@ void debug_speed() {
     for (i = 0; i < 1000000; i++) {
         if (speedL < 100 && i % 10 == 0) {
             speedL ++;
+            speedR ++;
         }
         printf("speed: %d\n", speedL);
         SetMotorLR(speedL, speedR);
@@ -449,18 +463,41 @@ float pid(char sencer_val, unsigned char side) {
     return res;
 }
 
+// unit
 void spin90() {
     SetMotorLR(-slow_speed, slow_speed);
     usleep(spin_time);
     SetMotorLR(0, 0);
 }
-
 void straight() {
     SetMotorLR(slow_speed, slow_speed);
     usleep(straight_time);
     SetMotorLR(0, 0);
 }
 
+void setPidStraight() {
+    speed_base = 80;
+    speed_diff_init = 10;
+    pid_kp_init = 1.0;
+    pid_kp_max = 1.5;
+    pid_kd = 0.8;
+}
+
+void setPidCurve() {
+    speed_base = 70;
+    speed_diff_init = 35;
+    pid_kp_init = 2.5;
+    pid_kp_max = 3.5;
+    pid_kd = 0.8;
+}
+
+void setPidSCurve() {
+    speed_base = 50;
+    speed_diff_init = 25;
+    pid_kp_init = 2.5;
+    pid_kp_max = 3.5;
+    pid_kd = 0.8;
+}
 
 // main funcs
 void linetrance() {
@@ -496,14 +533,11 @@ void linetrance() {
     unsigned char log = 0;
     unsigned char pre_col = 0;
 
-    // mode 0 Start 直線部分 --
+    // mode straight 直線部分 --
     if (mode == MODE_START) {
-        printf("mode 0!!\n");
-        speed_base = 80;
-        speed_diff_init = 10;
-        pid_kp_init = 1.3;
-        pid_kp_max = 1.8;
-        pid_kd = 2.0;
+        printf("mode straight !!\n");
+        setPidStraight();
+        mode = MODE_STRAIGHT1;
         // --
     }
     if (debug_mode == 1) {
@@ -610,16 +644,11 @@ void linetrance() {
                 speed_diff = speed_diff_init;
             }
 
-            if (mode == MODE_START && col == COLP_WW && generation > mode1_time) {
+            if (mode == MODE_STRAIGHT1 && col == COLP_WW && generation > mode1_time) {
                 // mode 1 first curve 第一カーブ --
                 printf("mode 1!!\n");
-                mode = -1;
-                speed_base = 60;
-                speed_diff_init = 30;
-                pid_kp_init = 2.5;
-                pid_kp_max = 3.5;
-                pid_kd = 0.8;
-
+                mode = MODE_CURVE1;
+                setPidCurve();
                 // --
             }
             if (mode == 3 && col == COLP_WW) {
