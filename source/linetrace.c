@@ -26,11 +26,14 @@ float pid_kd = 0.8;
 //#define DELTA_T 10
 float delta_t = 1;
 
+unsigned char debug_mode = 0;
+
 int slow_speed = 20;
 int spin_time = 820000;
 int straight_time = 700000;
 
 unsigned char mode1_time = 6;
+unsigned char mode_end_time = 35;
 
 char speed_base = 40;
 char speed_diff_init = 20;
@@ -94,6 +97,8 @@ int finale_limit = 125;
 
 // MODE
 #define MODE_NONE -1
+#define MODE_START 1 
+#define MODE_STRAIGHT 2 
 #define MODE_GOAL 8
 #define MODE_PARKSEARCH 9
 #define MODE_PARKING 10
@@ -358,8 +363,8 @@ void debug_sensors() {
     PrgStop();
 }
 void debug_speed() {
-    char speedL = 100;
-    char speedR = 100;
+    char speedL = 20;
+    char speedR = 20;
     sleep(3);
     printf("speed debug program start\n");
     PrgStop();
@@ -486,12 +491,13 @@ void linetrance() {
     int i;
     // mode 制御
     unsigned char mode = -1;
+//    mode = MODE_START;
 
     unsigned char log = 0;
     unsigned char pre_col = 0;
 
     // mode 0 Start 直線部分 --
-    if (mode == 0) {
+    if (mode == MODE_START) {
         printf("mode 0!!\n");
         speed_base = 80;
         speed_diff_init = 10;
@@ -500,8 +506,9 @@ void linetrance() {
         pid_kd = 2.0;
         // --
     }
-    // TODO: debug
-//    mode = MODE_GOAL;
+    if (debug_mode == 1) {
+        mode = MODE_GOAL;
+    }
 
     // 1msec * 100000 => 100sec
     for (i = 0; i < 100000; i++) {
@@ -536,6 +543,10 @@ void linetrance() {
         }
         gene_c++;
 
+        if (generation == mode_end_time) {
+            mode = MODE_GOAL;
+        }
+
         if (mode == MODE_GOAL) {
             speed_base = slow_speed;
             speed_diff_init = slow_speed / 2;
@@ -550,14 +561,13 @@ void linetrance() {
             char col_park_flag_new = CheckColorBit(GetColorSensorSuper());
             if (col_park_flag == COL_BLACK && col_park_flag_new == COL_WHITE) {
                 park_count++;
+                printf("%d - %d / %d\n", col_park_flag_new, park_count, park_num);
                 if (park_count == park_num) {
                     mode = MODE_PARKING;
                 }
             }
-            printf("%d - %d / %d\n", col_park_flag_new, park_count, park_num);
             col_park_flag = col_park_flag_new;
         }
-
         if (mode == MODE_PARKING) {
             // パーキング処理 parking action
             spin90();
@@ -600,7 +610,7 @@ void linetrance() {
                 speed_diff = speed_diff_init;
             }
 
-            if (mode == 0 && col == COLP_WW && generation > mode1_time) {
+            if (mode == MODE_START && col == COLP_WW && generation > mode1_time) {
                 // mode 1 first curve 第一カーブ --
                 printf("mode 1!!\n");
                 mode = -1;
@@ -612,10 +622,10 @@ void linetrance() {
 
                 // --
             }
-            if (mode == 2 && col == COLP_WW) {
+            if (mode == 3 && col == COLP_WW) {
                 // mode 3 second curve 第二カーブ --
                 printf("mode 3!!\n");
-                mode = 3;
+                mode = 4;
                 speed_base = 70;
                 speed_diff_init = 35;
                 pid_kp_init = 2.5;
@@ -624,10 +634,10 @@ void linetrance() {
                 // --
             }
         }
-        if (mode == 1 && col != COLP_WW) {
+        if (mode == 2 && col != COLP_WW) {
             // mode 2 second strait 直線部分 --
             printf("mode 2!!\n");
-            mode = 2;
+            mode = 3;
             speed_base = 80;
             speed_diff_init = 20;
             pid_kp_init = 1.3;
@@ -646,11 +656,11 @@ void linetrance() {
 //            printf("right out!!\n");
             val_l = 0;
         }
-//        float pid_vl = pid(val_l, LEFT);
+        float pid_vl = pid(val_l, LEFT);
         float pid_vr = pid(val_r, RIGHT);
-        speedL = speed_base - (pid_vr * speed_diff / 100);
+        speedL = speed_base + (pid_vl * speed_diff / 100);
         speedR = speed_base + (pid_vr * speed_diff / 100);
-        printf("<%f : %f>\n", speedL, speedR);
+//        printf("<%f : %f>\n", speedL, speedR);
         SetMotorLR(speedL, speedR);
         pre_col = col;
         usleep(10000);
@@ -754,6 +764,10 @@ int main(int argc, char *argv[]) {
         if (argc >= 5) {
             straight_time = atoi(argv[4]);
         }
+    } else if (argmode == 4) {
+        if (argc >= 3) {
+            debug_mode = atoi(argv[2]);
+        }
     }
     pid_kp = pid_kp_init;
     Init();
@@ -767,11 +781,21 @@ int main(int argc, char *argv[]) {
 
     printf("ProgStart\n");
 
-    linetrance();
-//    maxwallstop();
+    switch (debug_mode) {
+        case 2:
+            debug_spin();
+            break;
+        case 3:
+            debug_speed();
+            break;
+        case 4:
+            maxwallstop();
+            break;
+        default:
+            linetrance();
+        break;
+    }
 //    wallstop();
-//    debug_speed();
-//    debug_spin();
     printf("ProgStop\n");
 
     Fina();
