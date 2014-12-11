@@ -142,7 +142,7 @@ unsigned char ChColorSensorL = CH_3;
 unsigned char ChColorSensorR = CH_2;
 unsigned char ChColorSensorS = CH_4;
 
-unsigned char ChGyroSensor = CH_1;
+unsigned char ChGyroSensor = CH_2;
 unsigned char ChSonicSensor = CH_1;
 
 float integral = 0;
@@ -446,7 +446,7 @@ unsigned char CheckColor(unsigned char val) {
     return COL_WHITE;
 }
 unsigned char CheckColorBit(unsigned char val) {
-    return (val <= BASE_COL_GRAY_UP) ? COL_BLACK : COL_WHITE;
+    return (val <= BASE_COL_WHITE_UP) ? COL_BLACK : COL_WHITE;
 }
 void print_col(char col) {
     printf("[%s%s]<%d>", (col >> COL_LENG) == COL_BLACK ? "b" : "w", (col & 1) == COL_BLACK ? "b" : "w", col);
@@ -490,17 +490,17 @@ void straight() {
 }
 
 void setPidStraight() {
-    speed_base = 70;
+    speed_base = 60;
     speed_diff_init = 5;
     speed_diff_diff = 5;
-    pid_kp_init = 1.0;
-    pid_kp_max = 1.2;
-    pid_kd = 4.0;
+    pid_kp_init = 1.8;
+    pid_kp_max = 2.0;
+    pid_kd = 2.0;
 }
 
 void setPidCurve() {
-    speed_base = 70;
-    speed_diff_init = 35;
+    speed_base = 50;
+    speed_diff_init = 25;
     speed_diff_diff = 10;
     pid_kp_init = 2.5;
     pid_kp_max = 3.5;
@@ -551,8 +551,8 @@ void linetrance() {
         mode = MODE_NONE;
     }
 
-    unsigned char log = 0;
-    unsigned char pre_col = 0;
+//    unsigned char log = 0;
+//    unsigned char pre_col = 0;
 
     // mode straight 直線部分 --
     if (mode == MODE_START) {
@@ -571,6 +571,7 @@ void linetrance() {
         // 壁ストップ処理
         int sv = GetSonicSensor();
         unsigned char brake = 0;
+        int gv = GetGyroSensor();
 //        printf("<< %d\n", sv);
         if (sv < stop_distance) {
             SetMotorLR(0, 0);
@@ -648,28 +649,28 @@ void linetrance() {
 //        unsigned char val_r_c = CheckColor(val_r);
 //        unsigned char val_r_b = CheckColorBit(val_r);
 //        unsigned char val_l_b = CheckColorBit(val_l);
-        unsigned char col = (CheckColorBit(val_l) << COL_LENG) | CheckColorBit(val_r);
+//        unsigned char col = (CheckColorBit(val_l) << COL_LENG) | CheckColorBit(val_r);
         char speed_diff = speed_diff_init;
-        if (col != pre_col) {
-            log = pre_col;
-            // switch pid, speed, vlaues
-            if (col == COLP_WW) {
-                pid_kp = pid_kp_max;
-                speed_diff = speed_diff_init + speed_diff_diff;
-                if (log == COLP_WB) {
-                    printf("left out!!\n");
-                }
-                if (log == COLP_BW) {
-                    printf("right out!!\n");
-                }
-            } else {
-                pid_kp = pid_kp_init;
-                speed_diff = speed_diff_init;
-            }
-
-        }
+//        if (col != pre_col) {
+//            log = pre_col;
+//            // switch pid, speed, vlaues
+//            if (col == COLP_WW) {
+//                pid_kp = pid_kp_max;
+//                speed_diff = speed_diff_init + speed_diff_diff;
+//                if (log == COLP_WB) {
+//                    printf("left out!!\n");
+//                }
+//                if (log == COLP_BW) {
+//                    printf("right out!!\n");
+//                }
+//            } else {
+//                pid_kp = pid_kp_init;
+//                speed_diff = speed_diff_init;
+//            }
+//        }
 
         if (mode == MODE_STRAIGHT1 && generation > mode_c1_time) {
+//        if (mode == MODE_STRAIGHT1 && generation > mode_c1_time && col == COLP_WW && pre_col == COLP_BW) {
             // mode curve1 第一カーブ --
             printf("mode curve1 !!\n");
             mode = MODE_CURVE1;
@@ -762,17 +763,20 @@ void linetrance() {
 //            val_r = 5;
 //        }
 //        printf("(col:%d == WW: %d) (log:%d == WB: %d)\n", col, COLP_WW, log, COLP_WB);
-        if (col == COLP_WW && log == COLP_WB) {
-//            printf("left out!!\n");
-            val_r = 0;
-        } else if (col == COLP_WW && log == COLP_BW) {
-//            printf("right out!!\n");
+//        if (col == COLP_WW && log == COLP_WB) {
+////            printf("left out!!\n");
+//            val_r = 0;
+//        } else if (col == COLP_WW && log == COLP_BW) {
+////            printf("right out!!\n");
+//            val_l = 0;
+//        }
+        if (CheckColorBit(val_r) == COL_WHITE) {
             val_l = 0;
         }
         float pid_vl = pid(val_l, LEFT);
-        float pid_vr = pid(val_r, RIGHT);
+//        float pid_vr = pid(val_l, RIGHT);
         speedL = speed_base + (pid_vl * speed_diff / 100);
-        speedR = speed_base + (pid_vr * speed_diff / 100);
+        speedR = speed_base - (pid_vl * speed_diff / 100);
         if (mode == MODE_STRAIGHT1 && generation_in < 15) {
             // スタート直後 g start
             speedL -= 2 * (15 - generation_in);
@@ -786,9 +790,10 @@ void linetrance() {
             speedL /= 2;
             speedR /= 2;
         }
-//        printf("<%f : %f>\n", speedL, speedR);
+        if (gene_c == 0) {
+            printf("<%d : %d>\n", speedL, speedR);
+        }
         SetMotorLR(speedL, speedR);
-        pre_col = col;
         usleep(10000);
     }
     MotorStop();
