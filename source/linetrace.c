@@ -26,6 +26,8 @@ float pid_kd = 0.8;
 //#define DELTA_T 10
 float delta_t = 1;
 
+int argmode = 0;
+
 unsigned char debug_mode = 0;
 
 int slow_speed = 20;
@@ -45,7 +47,7 @@ unsigned char mode_c5_time = 60;
 unsigned char mode_s6_time = 60;
 unsigned char mode_c6_time = 60;
 unsigned char mode_s7_time = 60;
-unsigned char mode_end_time = 350;
+//unsigned char mode_end_time = 350;
 
 char speed_base = 40;
 char speed_diff_init = 20;
@@ -488,16 +490,18 @@ void straight() {
 }
 
 void setPidStraight() {
-    speed_base = 80;
-    speed_diff_init = 10;
+    speed_base = 70;
+    speed_diff_init = 5;
+    speed_diff_diff = 5;
     pid_kp_init = 1.0;
-    pid_kp_max = 1.5;
-    pid_kd = 0.8;
+    pid_kp_max = 1.2;
+    pid_kd = 4.0;
 }
 
 void setPidCurve() {
     speed_base = 70;
     speed_diff_init = 35;
+    speed_diff_diff = 10;
     pid_kp_init = 2.5;
     pid_kp_max = 3.5;
     pid_kd = 0.8;
@@ -506,6 +510,7 @@ void setPidCurve() {
 void setPidSCurve() {
     speed_base = 50;
     speed_diff_init = 25;
+    speed_diff_diff = 10;
     pid_kp_init = 2.5;
     pid_kp_max = 3.5;
     pid_kd = 0.8;
@@ -542,6 +547,9 @@ void linetrance() {
     // mode 制御
     unsigned char mode = -1;
     mode = MODE_START;
+    if (argmode == 2) {
+        mode = MODE_NONE;
+    }
 
     unsigned char log = 0;
     unsigned char pre_col = 0;
@@ -560,7 +568,7 @@ void linetrance() {
     // 1msec * 100000 => 100sec
     for (i = 0; i < 100000; i++) {
 
-        // 壁ストップ処理 - deleted
+        // 壁ストップ処理
         int sv = GetSonicSensor();
         unsigned char brake = 0;
 //        printf("<< %d\n", sv);
@@ -571,6 +579,7 @@ void linetrance() {
         } else if (sv < stop_distance * 2) {
             brake = 2;
         } else if (sv < stop_distance * 4) {
+            brake = 3;
 //            speed_base = 60;
 //            speed_diff_init = 30;
 //            pid_kp_init = 2.5;
@@ -764,6 +773,19 @@ void linetrance() {
         float pid_vr = pid(val_r, RIGHT);
         speedL = speed_base + (pid_vl * speed_diff / 100);
         speedR = speed_base + (pid_vr * speed_diff / 100);
+        if (mode == MODE_STRAIGHT1 && generation_in < 15) {
+            // スタート直後 g start
+            speedL -= 2 * (15 - generation_in);
+            speedR -= 2 * (15 - generation_in);
+        }
+        if (brake == 2) {
+            speedL /= 3;
+            speedR /= 3;
+        }
+        else if (brake == 3) {
+            speedL /= 2;
+            speedR /= 2;
+        }
 //        printf("<%f : %f>\n", speedL, speedR);
         SetMotorLR(speedL, speedR);
         pre_col = col;
@@ -821,7 +843,7 @@ void wallstop() {
 // main method
 int main(int argc, char *argv[]) {
     // get args pid values
-    int argmode = 0;
+    argmode = 0;
     if (argc >= 2) {
         argmode = atoi(argv[1]);
     }
