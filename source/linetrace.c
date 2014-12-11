@@ -14,7 +14,7 @@
 #define BASE_COL_GRAY_UP 20
 #define BASE_COL_WHITE_UP 50
 
-unsigned char target_col = 60;
+unsigned char target_col = 50;
 float pid_kp_init = 5.0;
 float pid_kp_max = 20.0;
 float pid_kp;
@@ -490,7 +490,7 @@ void straight() {
 }
 
 void setPidStraight() {
-    speed_base = 60;
+    speed_base = 70;
     speed_diff_init = 5;
     speed_diff_diff = 5;
     pid_kp_init = 1.8;
@@ -499,20 +499,20 @@ void setPidStraight() {
 }
 
 void setPidCurve() {
-    speed_base = 50;
-    speed_diff_init = 25;
+    speed_base = 40;
+    speed_diff_init = 20;
     speed_diff_diff = 10;
-    pid_kp_init = 2.5;
-    pid_kp_max = 3.5;
+    pid_kp_init = 1.6;
+    pid_kp_max = 2.5;
     pid_kd = 0.8;
 }
 
 void setPidSCurve() {
-    speed_base = 50;
-    speed_diff_init = 25;
+    speed_base = 40;
+    speed_diff_init = 20;
     speed_diff_diff = 10;
-    pid_kp_init = 2.5;
-    pid_kp_max = 3.5;
+    pid_kp_init = 1.6;
+    pid_kp_max = 2.5;
     pid_kd = 0.8;
 }
 
@@ -551,8 +551,8 @@ void linetrance() {
         mode = MODE_NONE;
     }
 
-//    unsigned char log = 0;
-//    unsigned char pre_col = 0;
+    unsigned char log = 0;
+    unsigned char pre_col = 0;
 
     // mode straight 直線部分 --
     if (mode == MODE_START) {
@@ -649,25 +649,26 @@ void linetrance() {
 //        unsigned char val_r_c = CheckColor(val_r);
 //        unsigned char val_r_b = CheckColorBit(val_r);
 //        unsigned char val_l_b = CheckColorBit(val_l);
-//        unsigned char col = (CheckColorBit(val_l) << COL_LENG) | CheckColorBit(val_r);
+        unsigned char col = (CheckColorBit(val_l) << COL_LENG) | CheckColorBit(val_r);
         char speed_diff = speed_diff_init;
-//        if (col != pre_col) {
-//            log = pre_col;
-//            // switch pid, speed, vlaues
-//            if (col == COLP_WW) {
-//                pid_kp = pid_kp_max;
-//                speed_diff = speed_diff_init + speed_diff_diff;
-//                if (log == COLP_WB) {
-//                    printf("left out!!\n");
-//                }
-//                if (log == COLP_BW) {
-//                    printf("right out!!\n");
-//                }
-//            } else {
-//                pid_kp = pid_kp_init;
-//                speed_diff = speed_diff_init;
-//            }
-//        }
+        if (col != pre_col) {
+            log = pre_col;
+            // switch pid, speed, vlaues
+            if (col == COLP_WW) {
+                // TODO: reflect
+                pid_kp = pid_kp_max;
+                speed_diff = speed_diff_init + speed_diff_diff;
+                if (log == COLP_WB) {
+                    printf("left out!!\n");
+                }
+                if (log == COLP_BW) {
+                    printf("right out!!\n");
+                }
+            } else {
+                pid_kp = pid_kp_init;
+                speed_diff = speed_diff_init;
+            }
+        }
 
         if (mode == MODE_STRAIGHT1 && generation > mode_c1_time) {
 //        if (mode == MODE_STRAIGHT1 && generation > mode_c1_time && col == COLP_WW && pre_col == COLP_BW) {
@@ -763,14 +764,9 @@ void linetrance() {
 //            val_r = 5;
 //        }
 //        printf("(col:%d == WW: %d) (log:%d == WB: %d)\n", col, COLP_WW, log, COLP_WB);
-//        if (col == COLP_WW && log == COLP_WB) {
-////            printf("left out!!\n");
-//            val_r = 0;
-//        } else if (col == COLP_WW && log == COLP_BW) {
-////            printf("right out!!\n");
-//            val_l = 0;
-//        }
-        if (CheckColorBit(val_r) == COL_WHITE) {
+        if (col == COLP_WW && log == COLP_WB) {
+            val_l = 100;
+        } else if (col == COLP_WW && log == COLP_BW) {
             val_l = 0;
         }
         float pid_vl = pid(val_l, LEFT);
@@ -794,6 +790,7 @@ void linetrance() {
             printf("<%d : %d>\n", speedL, speedR);
         }
         SetMotorLR(speedL, speedR);
+        pre_col = col;
         usleep(10000);
     }
     MotorStop();
