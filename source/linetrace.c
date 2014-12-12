@@ -12,7 +12,7 @@
 // config
 #define BASE_COL_BLACK_UP 10
 #define BASE_COL_GRAY_UP 20
-#define BASE_COL_WHITE_UP 50
+#define BASE_COL_WHITE_UP 40
 
 unsigned char target_col = 50;
 float pid_kp_init = 5.0;
@@ -493,8 +493,8 @@ void setPidStraight() {
     speed_base = 70;
     speed_diff_init = 5;
     speed_diff_diff = 5;
-    pid_kp_init = 1.8;
-    pid_kp_max = 2.0;
+    pid_kp_init = 1.3;
+    pid_kp_max = 1.5;
     pid_kd = 2.0;
 }
 
@@ -532,7 +532,7 @@ void linetrance() {
     PrgStart();
     MotorInit();
     MotorStart();
-    SetMotorLR(speedL, speedR);
+    SetMotorLR(0, 0);
 
 //    speed_base = 60;
 //    speed_diff_init = 30;
@@ -646,6 +646,7 @@ void linetrance() {
 
         char val_r = GetColorSensorRight();
         char val_l = GetColorSensorLeft();
+        printf("%d : %d\n", val_l, val_r);
 //        unsigned char val_r_c = CheckColor(val_r);
 //        unsigned char val_r_b = CheckColorBit(val_r);
 //        unsigned char val_l_b = CheckColorBit(val_l);
@@ -656,8 +657,8 @@ void linetrance() {
             // switch pid, speed, vlaues
             if (col == COLP_WW) {
                 // TODO: reflect
-                pid_kp = pid_kp_max;
-                speed_diff = speed_diff_init + speed_diff_diff;
+//                pid_kp = pid_kp_max;
+//                speed_diff = speed_diff_init + speed_diff_diff;
                 if (log == COLP_WB) {
                     printf("left out!!\n");
                 }
@@ -764,6 +765,7 @@ void linetrance() {
 //            val_r = 5;
 //        }
 //        printf("(col:%d == WW: %d) (log:%d == WB: %d)\n", col, COLP_WW, log, COLP_WB);
+
         if (col == COLP_WW && log == COLP_WB) {
             val_l = 100;
         } else if (col == COLP_WW && log == COLP_BW) {
@@ -773,10 +775,10 @@ void linetrance() {
 //        float pid_vr = pid(val_l, RIGHT);
         speedL = speed_base + (pid_vl * speed_diff / 100);
         speedR = speed_base - (pid_vl * speed_diff / 100);
-        if (mode == MODE_STRAIGHT1 && generation_in < 15) {
+        if ((mode == MODE_STRAIGHT1 || argmode == 2) && generation_in < 15) {
             // スタート直後 g start
-            speedL -= 2 * (15 - generation_in);
-            speedR -= 2 * (15 - generation_in);
+            speedL -= 3 * (15 - generation_in);
+            speedR -= 3 * (15 - generation_in);
         }
         if (brake == 2) {
             speedL /= 3;
