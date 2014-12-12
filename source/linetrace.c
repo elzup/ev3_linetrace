@@ -34,19 +34,19 @@ int slow_speed = 20;
 int spin_time = 820000;
 int straight_time = 700000;
 
-unsigned char mode_c1_time = 60;
-unsigned char mode_s2_time = 60;
-unsigned char mode_c2_time = 60;
-unsigned char mode_s3_time = 60;
-unsigned char mode_sc_time = 60;
-unsigned char mode_c3_time = 60;
-unsigned char mode_s4_time = 60;
-unsigned char mode_c4_time = 60;
-unsigned char mode_s5_time = 60;
-unsigned char mode_c5_time = 60;
-unsigned char mode_s6_time = 60;
-unsigned char mode_c6_time = 60;
-unsigned char mode_s7_time = 60;
+short int mode_c1_time = 600;
+short int mode_s2_time = 600;
+short int mode_c2_time = 600;
+short int mode_s3_time = 600;
+short int mode_sc_time = 600;
+short int mode_c3_time = 600;
+short int mode_s4_time = 600;
+short int mode_c4_time = 600;
+short int mode_s5_time = 600;
+short int mode_c5_time = 600;
+short int mode_s6_time = 600;
+short int mode_c6_time = 600;
+short int mode_s7_time = 600;
 //unsigned char mode_end_time = 350;
 
 char speed_base = 40;
@@ -490,21 +490,21 @@ void straight() {
 }
 
 void setPidStraight() {
-    speed_base = 70;
+    speed_base = 30;
     speed_diff_init = 5;
-    speed_diff_diff = 5;
-    pid_kp_init = 1.3;
-    pid_kp_max = 1.5;
-    pid_kd = 2.0;
+    speed_diff_diff = 0;
+    pid_kp_init = 3.0;
+    pid_kp_max = pid_kp_init;
+    pid_kd = 1.0;
 }
 
 void setPidCurve() {
-    speed_base = 40;
-    speed_diff_init = 20;
-    speed_diff_diff = 10;
-    pid_kp_init = 1.6;
-    pid_kp_max = 2.5;
-    pid_kd = 0.8;
+    speed_base = 30;
+    speed_diff_init = 14;
+    speed_diff_diff = 0;
+    pid_kp_init = 4.5;
+    pid_kp_max = pid_kp_init;
+    pid_kd = 0.7;
 }
 
 void setPidSCurve() {
@@ -575,7 +575,7 @@ void linetrance() {
 //        printf("<< %d\n", sv);
         if (sv < stop_distance) {
             SetMotorLR(0, 0);
-            usleep(10000);
+            usleep(100);
             continue;
         } else if (sv < stop_distance * 2) {
             brake = 2;
@@ -594,7 +594,7 @@ void linetrance() {
         }
 
         gene_c++;
-        if (gene_c == 10) {
+        if (gene_c == 100) {
             generation++;
             generation_in++;
             printf("<<<g: %4d (%d)\n", generation_in, generation);
@@ -646,7 +646,6 @@ void linetrance() {
 
         char val_r = GetColorSensorRight();
         char val_l = GetColorSensorLeft();
-        printf("%d : %d\n", val_l, val_r);
 //        unsigned char val_r_c = CheckColor(val_r);
 //        unsigned char val_r_b = CheckColorBit(val_r);
 //        unsigned char val_l_b = CheckColorBit(val_l);
@@ -657,30 +656,30 @@ void linetrance() {
             // switch pid, speed, vlaues
             if (col == COLP_WW) {
                 // TODO: reflect
-//                pid_kp = pid_kp_max;
-//                speed_diff = speed_diff_init + speed_diff_diff;
-                if (log == COLP_WB) {
+                pid_kp = pid_kp_max;
+                speed_diff = speed_diff_init + speed_diff_diff;
+                if (pre_col == COLP_WB) {
                     printf("left out!!\n");
                 }
-                if (log == COLP_BW) {
+                if (pre_col == COLP_BW) {
                     printf("right out!!\n");
                 }
             } else {
                 pid_kp = pid_kp_init;
                 speed_diff = speed_diff_init;
             }
+            if (mode == MODE_STRAIGHT1 && generation > mode_c1_time && pre_col == COLP_BW) {
+                //        if (mode == MODE_STRAIGHT1 && generation > mode_c1_time && col == COLP_WW && pre_col == COLP_BW) {
+                // mode curve1 第一カーブ --
+                printf("mode curve1 !!\n");
+                mode = MODE_CURVE1;
+                generation_in = 0;
+                setPidCurve();
+                // --
+            }
         }
 
-        if (mode == MODE_STRAIGHT1 && generation > mode_c1_time) {
-//        if (mode == MODE_STRAIGHT1 && generation > mode_c1_time && col == COLP_WW && pre_col == COLP_BW) {
-            // mode curve1 第一カーブ --
-            printf("mode curve1 !!\n");
-            mode = MODE_CURVE1;
-            generation_in = 0;
-            setPidCurve();
-            // --
-        }
-        if (mode == MODE_CURVE1 && generation_in == mode_s2_time) {
+        if (mode == MODE_CURVE1 && generation_in > mode_s2_time && col != COLP_WW) {
             // mode straight2 直線部分 --
             printf("mode straight2 !!\n");
             mode = MODE_STRAIGHT2;
@@ -766,19 +765,28 @@ void linetrance() {
 //        }
 //        printf("(col:%d == WW: %d) (log:%d == WB: %d)\n", col, COLP_WW, log, COLP_WB);
 
-        if (col == COLP_WW && log == COLP_WB) {
-            val_l = 100;
-        } else if (col == COLP_WW && log == COLP_BW) {
-            val_l = 0;
+        if (generation > 3) {
+            if (col == COLP_WW && log == COLP_WB) {
+                val_l = 100;
+            } else if (col == COLP_WW && log == COLP_BW) {
+                val_l = 0;
+            }
         }
         float pid_vl = pid(val_l, LEFT);
 //        float pid_vr = pid(val_l, RIGHT);
+        float pid_vr = -pid_vl;
+//        if (pid_vr < 0) {
+//            pid_vr *= 2;
+//        } else {
+//            pid_vl *= 2;
+//        }
+
         speedL = speed_base + (pid_vl * speed_diff / 100);
-        speedR = speed_base - (pid_vl * speed_diff / 100);
-        if ((mode == MODE_STRAIGHT1 || argmode == 2) && generation_in < 15) {
+        speedR = speed_base + (pid_vr * speed_diff / 100);
+        if ((mode == MODE_STRAIGHT1 || argmode == 2) && generation < 15 && speed_base > 40) {
             // スタート直後 g start
-            speedL -= 3 * (15 - generation_in);
-            speedR -= 3 * (15 - generation_in);
+            speedL -= 2 * (15 - generation);
+            speedR -= 2 * (15 - generation);
         }
         if (brake == 2) {
             speedL /= 3;
@@ -793,7 +801,7 @@ void linetrance() {
         }
         SetMotorLR(speedL, speedR);
         pre_col = col;
-        usleep(10000);
+        usleep(100);
     }
     MotorStop();
     PrgStop();
