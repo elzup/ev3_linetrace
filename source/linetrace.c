@@ -14,7 +14,7 @@
 #define BASE_COL_GRAY_UP 20
 #define BASE_COL_WHITE_UP 40
 
-unsigned char target_col = 50;
+unsigned char target_col = 60;
 float pid_kp_init = 5.0;
 float pid_kp_max = 20.0;
 float pid_kp;
@@ -31,23 +31,13 @@ int argmode = 0;
 unsigned char debug_mode = 0;
 
 int slow_speed = 20;
-int spin_time = 820000;
-int straight_time = 700000;
+int spin_time = 810000;
+int straight_time = 100000;
 
-short int mode_c1_time = 600;
-short int mode_s2_time = 600;
-short int mode_c2_time = 600;
-short int mode_s3_time = 600;
-short int mode_sc_time = 600;
-short int mode_c3_time = 600;
-short int mode_s4_time = 600;
-short int mode_c4_time = 600;
-short int mode_s5_time = 600;
-short int mode_c5_time = 600;
-short int mode_s6_time = 600;
-short int mode_c6_time = 600;
-short int mode_s7_time = 600;
-//unsigned char mode_end_time = 350;
+short int mode_time_st = 100;
+short int mode_time_cr = 100;
+short int mode_time_sc = 100;
+short int mode_time_ed = 150;
 
 char speed_base = 40;
 char speed_diff_init = 20;
@@ -55,12 +45,14 @@ char speed_diff_diff = 10;
 
 int stop_distance = 150; // mm
 
-char park_num = 3;
+char park_num = 1;
 char park_count = 0;
 char col_park_flag = 0;
+int park_delay = 1000;
+int park_delay_count = 0;
 
 int finale_timer = 0;
-int finale_limit = 125;
+int finale_limit = 800;
 
 // constantses
 // line color
@@ -112,19 +104,10 @@ int finale_limit = 125;
 // MODE
 #define MODE_NONE -1
 #define MODE_START 1
-#define MODE_STRAIGHT1 2
+#define MODE_STRAIGHT 2
 #define MODE_CURVE1 3
-#define MODE_STRAIGHT2 4
+#define MODE_SCURVE 4
 #define MODE_CURVE2 5
-#define MODE_SCURVE 6
-#define MODE_CURVE3 7
-#define MODE_STRAIGHT3 8
-#define MODE_CURVE4 9
-#define MODE_STRAIGHT4 10
-#define MODE_CURVE5 11
-#define MODE_STRAIGHT5 12
-#define MODE_CURVE6 13
-#define MODE_STRAIGHT6 14
 
 #define MODE_GOAL 15
 #define MODE_PARKSEARCH 16
@@ -491,29 +474,38 @@ void straight() {
 
 void setPidStraight() {
     speed_base = 30;
-    speed_diff_init = 5;
+    speed_diff_init = 30;
     speed_diff_diff = 0;
-    pid_kp_init = 3.0;
-    pid_kp_max = pid_kp_init;
-    pid_kd = 1.0;
+    pid_kp_init = 0.7;
+    pid_kp_max = 0.0;
+    pid_kd = 1.3;
 }
 
 void setPidCurve() {
     speed_base = 30;
-    speed_diff_init = 14;
+    speed_diff_init = 30;
     speed_diff_diff = 0;
-    pid_kp_init = 4.5;
-    pid_kp_max = pid_kp_init;
-    pid_kd = 0.7;
+    pid_kp_init = 0.9;
+    pid_kp_max = 1.0;
+    pid_kd = 0.9;
 }
 
 void setPidSCurve() {
-    speed_base = 40;
-    speed_diff_init = 20;
-    speed_diff_diff = 10;
-    pid_kp_init = 1.6;
-    pid_kp_max = 2.5;
+    speed_base = 30;
+    speed_diff_init = 30;
+    speed_diff_diff = 0;
+    pid_kp_init = 1.1;
+    pid_kp_max = 1.3;
     pid_kd = 0.8;
+}
+
+void setPidSlow() {
+    speed_base = 30;
+    speed_diff_init = 30;
+    speed_diff_diff = 0;
+    pid_kp_init = 0.7;
+    pid_kp_max = 0.0;
+    pid_kd = 1.3;
 }
 
 // main funcs
@@ -558,10 +550,10 @@ void linetrance() {
     if (mode == MODE_START) {
         printf("mode straight !!\n");
         setPidStraight();
-        mode = MODE_STRAIGHT1;
+        mode = MODE_STRAIGHT;
         // --
     }
-    if (debug_mode == 1) {
+    if (debug_mode == 1 || argmode == 3) {
         mode = MODE_GOAL;
     }
 
@@ -601,23 +593,23 @@ void linetrance() {
             gene_c = 0;
         }
 
-//        if (generation == mode_end_time) {
+//        if (generation == mode_time_ed) {
 //            mode = MODE_GOAL;
 //        }
 
-        if (mode == MODE_GOAL) {
-            speed_base = slow_speed;
-            speed_diff_init = slow_speed / 2;
-            pid_kp_init = 1.6;
-            pid_kp_max = 2.0;
-            pid_kd = 1.5;
+        char val_s = GetColorSensorSuper();
+        unsigned char col_park_flag_new = CheckColorBit(val_s);
+        if (mode == MODE_GOAL || (mode == MODE_CURVE2 && generation_in == mode_time_ed)) {
+            setPidSlow();
             park_count = 0;
+            col_park_flag = COL_WHITE;
             mode = MODE_PARKSEARCH;
+            park_delay_count = 10000;
         }
-
         if (mode == MODE_PARKSEARCH) {
-            char col_park_flag_new = CheckColorBit(GetColorSensorSuper());
-            if (col_park_flag == COL_BLACK && col_park_flag_new == COL_WHITE) {
+            park_delay_count++;
+            if (park_delay < park_delay_count && col_park_flag == COL_WHITE && col_park_flag_new == COL_BLACK) {
+                park_delay_count = 0;
                 park_count++;
                 printf("%d - %d / %d\n", col_park_flag_new, park_count, park_num);
                 if (park_count == park_num) {
@@ -630,9 +622,10 @@ void linetrance() {
             // パーキング処理 parking action
             spin90();
             straight();
-            pid_kp_init = 2.0;
-            pid_kp_max = 4.0;
-            pid_kd = 0.5;
+            pid_kp_init = 0.9;
+            pid_kp_max = 1.0;
+            pid_kd = 1.0;
+            target_col = 40;
             mode = MODE_FINALE;
         }
 
@@ -668,8 +661,8 @@ void linetrance() {
                 pid_kp = pid_kp_init;
                 speed_diff = speed_diff_init;
             }
-            if (mode == MODE_STRAIGHT1 && generation > mode_c1_time && pre_col == COLP_BW) {
-                //        if (mode == MODE_STRAIGHT1 && generation > mode_c1_time && col == COLP_WW && pre_col == COLP_BW) {
+            if (mode == MODE_STRAIGHT && generation > mode_time_st && col == COLP_WW && pre_col == COLP_BW) {
+                //        if (mode == MODE_STRAIGHT && generation > mode_time_st && col == COLP_WW && pre_col == COLP_BW) {
                 // mode curve1 第一カーブ --
                 printf("mode curve1 !!\n");
                 mode = MODE_CURVE1;
@@ -679,86 +672,23 @@ void linetrance() {
             }
         }
 
-        if (mode == MODE_CURVE1 && generation_in > mode_s2_time && col != COLP_WW) {
-            // mode straight2 直線部分 --
-            printf("mode straight2 !!\n");
-            mode = MODE_STRAIGHT2;
+        if (mode == MODE_CURVE1 && generation_in == mode_time_cr) {
+            // mode curve1 => scurve  --
+            printf("mode scurve !!\n");
+            mode = MODE_SCURVE;
             generation_in = 0;
-            setPidStraight();
+            setPidSCurve();
             // --
         }
-        if (mode == MODE_STRAIGHT2 && generation_in == mode_c2_time) {
-            // mode curve2 第二カーブ --
+        if (mode == MODE_SCURVE && generation_in == mode_time_sc) {
+            // mode scurve => curve2  --
             printf("mode curve2 !!\n");
             mode = MODE_CURVE2;
             generation_in = 0;
             setPidCurve();
             // --
         }
-        if (mode == MODE_CURVE2 && generation_in == mode_s3_time) {
-            // mode straight3 直線部分 --
-            printf("mode straight3 !!\n");
-            mode = MODE_STRAIGHT3;
-            generation_in = 0;
-            setPidStraight();
-            // --
-        }
-        if (mode == MODE_STRAIGHT3 && generation_in == mode_sc_time) {
-            // mode super curve 急カーブ --
-            printf("mode s curve !!\n");
-            mode = MODE_SCURVE;
-            generation_in = 0;
-            setPidSCurve();
-            // --
-        }
-        if (mode == MODE_SCURVE && generation_in == mode_c3_time) {
-            // mode curve3 第三カーブ --
-            printf("mode curve3 !!\n");
-            mode = MODE_CURVE3;
-            generation_in = 0;
-            setPidCurve();
-            // --
-        }
-        if (mode == MODE_CURVE3 && generation_in == mode_s4_time) {
-            // mode straight4 直線部分 --
-            printf("mode straight4 !!\n");
-            mode = MODE_STRAIGHT4;
-            generation_in = 0;
-            setPidStraight();
-            // --
-        }
-        if (mode == MODE_STRAIGHT4 && generation_in == mode_c4_time) {
-            // mode curve4 第二カーブ --
-            printf("mode curve4 !!\n");
-            mode = MODE_CURVE4;
-            generation_in = 0;
-            setPidCurve();
-            // --
-        }
-        if (mode == MODE_CURVE4 && generation_in == mode_s5_time) {
-            // mode straight5 直線部分 --
-            printf("mode straight5 !!\n");
-            mode = MODE_STRAIGHT5;
-            generation_in = 0;
-            setPidStraight();
-            // --
-        }
-        if (mode == MODE_STRAIGHT5 && generation_in == mode_c5_time) {
-            // mode curve5 第二カーブ --
-            printf("mode curve5 !!\n");
-            mode = MODE_CURVE5;
-            generation_in = 0;
-            setPidCurve();
-            // --
-        }
-        if (mode == MODE_CURVE5 && generation_in == mode_s6_time) {
-            // mode straight6 直線部分 --
-            printf("mode straight6 !!\n");
-            mode = MODE_STRAIGHT6;
-            generation_in = 0;
-            setPidStraight();
-            // --
-        }
+
 
 //        if (col == COLP_BW || col == COLP_BB) {
 //            val_r = 5;
@@ -783,7 +713,7 @@ void linetrance() {
 
         speedL = speed_base + (pid_vl * speed_diff / 100);
         speedR = speed_base + (pid_vr * speed_diff / 100);
-        if ((mode == MODE_STRAIGHT1 || argmode == 2) && generation < 15 && speed_base > 40) {
+        if ((mode == MODE_STRAIGHT || argmode == 2) && generation < 15 && speed_base > 40) {
             // スタート直後 g start
             speedL -= 2 * (15 - generation);
             speedR -= 2 * (15 - generation);
@@ -801,6 +731,9 @@ void linetrance() {
         }
         SetMotorLR(speedL, speedR);
         pre_col = col;
+
+//        printf("%f %f %f %f %d %d %d %f %d\n", pid_kp_init, pid_ki, pid_kd, delta_t, speed_base, speed_diff, speed_diff_diff, pid_kp_max, target_col);
+
         usleep(100);
     }
     MotorStop();
@@ -861,37 +794,16 @@ int main(int argc, char *argv[]) {
     }
     if (argmode == 1) {
         if (argc >= 3) {
-            mode_c1_time = atoi(argv[2]);
+            mode_time_st = atoi(argv[2]);
         }
         if (argc >= 4) {
-            mode_s2_time = atoi(argv[3]);
+            mode_time_cr = atoi(argv[3]);
         }
         if (argc >= 5) {
-            mode_c2_time = atoi(argv[4]);
+            mode_time_sc = atoi(argv[4]);
         }
         if (argc >= 6) {
-            mode_s3_time = atoi(argv[5]);
-        }
-        if (argc >= 7) {
-            mode_sc_time = atoi(argv[6]);
-        }
-        if (argc >= 8) {
-            mode_c3_time = atoi(argv[7]);
-        }
-        if (argc >= 9) {
-            mode_s4_time = atoi(argv[8]);
-        }
-        if (argc >= 10) {
-            mode_c5_time = atoi(argv[9]);
-        }
-        if (argc >= 11) {
-            mode_s6_time = atoi(argv[10]);
-        }
-        if (argc >= 12) {
-            mode_c6_time = atoi(argv[11]);
-        }
-        if (argc >= 13) {
-            mode_s7_time = atoi(argv[12]);
+            mode_time_ed = atoi(argv[5]);
         }
 
     } else if (argmode == 2) {
@@ -918,7 +830,7 @@ int main(int argc, char *argv[]) {
             speed_diff_diff = atoi(argv[8]);
         }
         if (argc >= 10) {
-            pid_kp_max = atoi(argv[9]);
+            pid_kp_max = atof(argv[9]);
         }
         if (argc >= 11) {
             target_col = atoi(argv[10]);
@@ -933,9 +845,16 @@ int main(int argc, char *argv[]) {
         if (argc >= 5) {
             straight_time = atoi(argv[4]);
         }
+        if (argc >= 6) {
+            finale_limit = atoi(argv[5]);
+        }
     } else if (argmode == 4) {
         if (argc >= 3) {
             debug_mode = atoi(argv[2]);
+        }
+    } else if (argmode == 5) {
+        if (argc >= 3) {
+            park_num = atoi(argv[2]);
         }
     }
     pid_kp = pid_kp_init;
