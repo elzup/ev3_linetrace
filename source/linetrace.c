@@ -31,13 +31,16 @@ int argmode = 0;
 unsigned char debug_mode = 0;
 
 int slow_speed = 20;
-int spin_time = 810000;
+int spin_time = 500000;
 int straight_time = 100000;
 
-short int mode_time_st = 100;
-short int mode_time_cr = 100;
-short int mode_time_sc = 100;
-short int mode_time_ed = 150;
+short int mode_time_in = 0;
+short int mode_time_st = 90;
+short int mode_time_cr = 110;
+short int mode_time_sc = 90;
+short int mode_time_cr2 = 110;
+short int mode_time_st2 = 0;
+short int mode_time_ed = 120;
 
 char speed_base = 40;
 char speed_diff_init = 20;
@@ -50,6 +53,7 @@ char park_count = 0;
 char col_park_flag = 0;
 int park_delay = 1000;
 int park_delay_count = 0;
+
 
 int finale_timer = 0;
 int finale_limit = 800;
@@ -105,9 +109,12 @@ int finale_limit = 800;
 #define MODE_NONE -1
 #define MODE_START 1
 #define MODE_STRAIGHT 2
+#define MODE_INIT 6
 #define MODE_CURVE1 3
 #define MODE_SCURVE 4
 #define MODE_CURVE2 5
+#define MODE_STRAIGHT2 7
+#define MODE_CURVE3 8
 
 #define MODE_GOAL 15
 #define MODE_PARKSEARCH 16
@@ -464,6 +471,9 @@ float pid(char sencer_val, unsigned char side) {
 void spin90() {
     SetMotorLR(-slow_speed, slow_speed);
     usleep(spin_time);
+    while (CheckColorBit(GetColorSensorSuper()) == COL_WHITE) {
+        usleep(1000);
+    }
     SetMotorLR(0, 0);
 }
 void straight() {
@@ -472,12 +482,21 @@ void straight() {
     SetMotorLR(0, 0);
 }
 
-void setPidStraight() {
+void setPidInit() {
     speed_base = 30;
     speed_diff_init = 30;
     speed_diff_diff = 0;
     pid_kp_init = 0.7;
     pid_kp_max = 0.0;
+    pid_kd = 1.3;
+}
+
+void setPidStraight() {
+    speed_base = 38;
+    speed_diff_init = 38;
+    speed_diff_diff = 0;
+    pid_kp_init = 0.675;
+    pid_kp_max = 0.02;
     pid_kd = 1.3;
 }
 
@@ -548,7 +567,7 @@ void linetrance() {
 
     // mode straight 直線部分 --
     if (mode == MODE_START) {
-        printf("mode straight !!\n");
+        printf("mode init !!\n");
         setPidStraight();
         mode = MODE_STRAIGHT;
         // --
@@ -599,7 +618,7 @@ void linetrance() {
 
         char val_s = GetColorSensorSuper();
         unsigned char col_park_flag_new = CheckColorBit(val_s);
-        if (mode == MODE_GOAL || (mode == MODE_CURVE2 && generation_in == mode_time_ed)) {
+        if (mode == MODE_GOAL || (mode == MODE_CURVE3 && generation_in == mode_time_ed)) {
             setPidSlow();
             park_count = 0;
             col_park_flag = COL_WHITE;
@@ -664,17 +683,23 @@ void linetrance() {
             if (mode == MODE_STRAIGHT && generation > mode_time_st && col == COLP_WW && pre_col == COLP_BW) {
                 //        if (mode == MODE_STRAIGHT && generation > mode_time_st && col == COLP_WW && pre_col == COLP_BW) {
                 // mode curve1 第一カーブ --
-                printf("mode curve1 !!\n");
+                printf("mode curve1 !!\n\n");
                 mode = MODE_CURVE1;
                 generation_in = 0;
                 setPidCurve();
                 // --
             }
         }
+            if (mode == MODE_INIT && generation_in == mode_time_in) {
+                printf("mode straight !!\n\n");
+                setPidStraight();
+                mode = MODE_STRAIGHT;
+                // --
+            }
 
         if (mode == MODE_CURVE1 && generation_in == mode_time_cr) {
             // mode curve1 => scurve  --
-            printf("mode scurve !!\n");
+            printf("mode scurve !!\n\n");
             mode = MODE_SCURVE;
             generation_in = 0;
             setPidSCurve();
@@ -682,8 +707,24 @@ void linetrance() {
         }
         if (mode == MODE_SCURVE && generation_in == mode_time_sc) {
             // mode scurve => curve2  --
-            printf("mode curve2 !!\n");
+            printf("mode curve2 !!\n\n");
             mode = MODE_CURVE2;
+            generation_in = 0;
+            setPidCurve();
+            // --
+        }
+        if (mode == MODE_CURVE2 && generation_in == mode_time_cr2) {
+            // mode curve1 => scurve  --
+            printf("mode stragiht2 !!\n\n");
+            mode = MODE_STRAIGHT2;
+            generation_in = 0;
+            setPidStraight();
+            // --
+        }
+        if (mode == MODE_STRAIGHT2 && generation_in == mode_time_st2) {
+            // mode curve1 => scurve  --
+            printf("mode curve3 !!\n\n");
+            mode = MODE_CURVE3;
             generation_in = 0;
             setPidCurve();
             // --
@@ -727,7 +768,7 @@ void linetrance() {
             speedR /= 2;
         }
         if (gene_c == 0) {
-            printf("<%d : %d>\n", speedL, speedR);
+//            printf("<%d : %d>\n", speedL, speedR);
         }
         SetMotorLR(speedL, speedR);
         pre_col = col;
@@ -803,7 +844,13 @@ int main(int argc, char *argv[]) {
             mode_time_sc = atoi(argv[4]);
         }
         if (argc >= 6) {
-            mode_time_ed = atoi(argv[5]);
+            mode_time_cr2 = atoi(argv[5]);
+        }
+        if (argc >= 7) {
+            mode_time_st2 = atoi(argv[6]);
+        }
+        if (argc >= 8) {
+            mode_time_ed = atoi(argv[7]);
         }
 
     } else if (argmode == 2) {
