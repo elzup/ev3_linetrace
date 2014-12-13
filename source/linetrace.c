@@ -32,15 +32,18 @@ unsigned char debug_mode = 0;
 
 int slow_speed = 20;
 int spin_time = 500000;
-int straight_time = 100000;
+// TODO: check
+int spin_time_r = 200000;
+int straight_time = 200000;
 
 short int mode_time_in = 0;
-short int mode_time_st = 90;
+short int mode_time_st = 85;
 short int mode_time_cr = 110;
 short int mode_time_sc = 90;
 short int mode_time_cr2 = 110;
 short int mode_time_st2 = 0;
-short int mode_time_ed = 120;
+// TODO: check
+short int mode_time_ed = 140;
 
 char speed_base = 40;
 char speed_diff_init = 20;
@@ -48,15 +51,14 @@ char speed_diff_diff = 10;
 
 int stop_distance = 150; // mm
 
-char park_num = 1;
+char park_num = 3;
 char park_count = 0;
 char col_park_flag = 0;
-int park_delay = 1000;
+int park_delay = 500;
 int park_delay_count = 0;
 
-
 int finale_timer = 0;
-int finale_limit = 800;
+int finale_limit = 400;
 
 // constantses
 // line color
@@ -475,6 +477,11 @@ void spin90() {
         usleep(1000);
     }
     SetMotorLR(0, 0);
+    usleep(500000);
+    SetMotorLR(slow_speed, -slow_speed);
+    usleep(spin_time_r);
+    SetMotorLR(0, 0);
+    usleep(500000);
 }
 void straight() {
     SetMotorLR(slow_speed, slow_speed);
@@ -495,14 +502,14 @@ void setPidStraight() {
     speed_base = 38;
     speed_diff_init = 38;
     speed_diff_diff = 0;
-    pid_kp_init = 0.675;
+    pid_kp_init = 0.4;
     pid_kp_max = 0.02;
     pid_kd = 1.3;
 }
 
 void setPidCurve() {
-    speed_base = 30;
-    speed_diff_init = 30;
+    speed_base = 32;
+    speed_diff_init = 32;
     speed_diff_diff = 0;
     pid_kp_init = 0.9;
     pid_kp_max = 1.0;
@@ -528,17 +535,11 @@ void setPidSlow() {
 }
 
 // main funcs
-void linetrance() {
+void linetrace() {
     char speedL = speed_base;
     char speedR = speed_base;
-    SetLed(LED_BLACK);
-    sleep(1);
-    SetLed(LED_RED);
-    sleep(1);
-    SetLed(LED_ORANGE);
-    sleep(1);
-    SetLed(LED_GREEN);
-    printf("linetrance program start\n");
+    sleep(3);
+    printf("linetrace program start\n");
     PrgStop();
     PrgStart();
     MotorInit();
@@ -760,12 +761,12 @@ void linetrance() {
             speedR -= 2 * (15 - generation);
         }
         if (brake == 2) {
-            speedL /= 3;
-            speedR /= 3;
+            speedL *= 0.5;
+            speedR *= 0.5;
         }
         else if (brake == 3) {
-            speedL /= 2;
-            speedR /= 2;
+            speedL *= 0.75;
+            speedR *= 0.75;
         }
         if (gene_c == 0) {
 //            printf("<%d : %d>\n", speedL, speedR);
@@ -895,6 +896,9 @@ int main(int argc, char *argv[]) {
         if (argc >= 6) {
             finale_limit = atoi(argv[5]);
         }
+        if (argc >= 7) {
+            spin_time_r = atoi(argv[6]);
+        }
     } else if (argmode == 4) {
         if (argc >= 3) {
             debug_mode = atoi(argv[2]);
@@ -927,7 +931,7 @@ int main(int argc, char *argv[]) {
             maxwallstop();
             break;
         default:
-            linetrance();
+            linetrace();
         break;
     }
 //    wallstop();
